@@ -1,0 +1,13 @@
+[Unit]
+Description=Pi-hole 6 Prometheus Exporter
+After=pihole-FTL.service
+
+[Service]
+Type=exec
+EnvironmentFile=/etc/pihole6_exporter.env
+ExecStart=/usr/bin/python3 /usr/local/bin/pihole6_exporter.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
