@@ -1,0 +1,105 @@
+# Prometheus alerting rules for a Raspberry Pi homelab.
+#
+# Two rule groups:
+#   - homelab: host-level health (CPU, memory, disk, temp, key services)
+#   - containers: per-container health via cAdvisor metrics
+#
+# Adapt the container name regex (wc2026-bot|homelab-redis|...) to match
+# your own container names. Pair with alertmanager-telegram-bridge
+# (https://github.com/bibigon14/alertmanager-telegram-bridge) to get these
+# delivered to Telegram with quiet hours, throttling, and routing.
+
+groups:
+  - name: homelab
+    rules:
+      - alert: NodeDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} is down"
+          description: "{{ $labels.instance }} has been unreachable for more than 1 minute"
+
+      - alert: HighCPU
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | printf \"%.1f\" }}%"
+
+      - alert: HighMemory
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | printf \"%.1f\" }}%"
+
+      - alert: DiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space low on {{ $labels.instance }}"
+          description: "{{ $labels.mountpoint }} is {{ $value | printf \"%.1f\" }}% full"
+
+      - alert: HighTemperature
+        expr: node_thermal_zone_temp > 70
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High temperature on {{ $labels.instance }}"
+          description: "Temperature is {{ $value | printf \"%.0f\" }}°C"
+
+      - alert: PiholeDown
+        expr: up{job="pihole"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pi-hole is down"
+          description: "Pi-hole has been unreachable for more than 1 minute"
+
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus is down"
+          description: "Prometheus has been unreachable for more than 1 minute"
+
+  - name: containers
+    rules:
+      - alert: ContainerDown
+        expr: time() - container_last_seen{name=~"your-container-1|your-container-2"} > 60
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container {{ $labels.name }} is down"
+          description: "{{ $labels.name }} hasn't reported metrics in over a minute — likely crashed or stopped"
+
+      - alert: ContainerHighMemory
+        expr: container_memory_usage_bytes{name=~"your-container-1|your-container-2"} / 1024 / 1024 > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage in {{ $labels.name }}"
+          description: "{{ $labels.name }} is using {{ $value | printf \"%.0f\" }}MB"
+
+      - alert: ContainerRestarting
+        expr: increase(container_start_time_seconds{name=~"your-container-1|your-container-2"}[10m]) > 0 and on(name) (time() - container_last_seen{name=~"your-container-1|your-container-2"}) < 60
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.name }} restarted recently"
+          description: "Container restarted within the last 10 minutes — check logs"
