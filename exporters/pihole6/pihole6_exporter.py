@@ -34,11 +34,12 @@ import requests
 from prometheus_client import start_http_server, Gauge
 
 PIHOLE_HOST = os.environ.get("PIHOLE_HOST", "localhost")
+PIHOLE_PORT = int(os.environ.get("PIHOLE_PORT", "80"))
 PIHOLE_PASSWORD = os.environ["PIHOLE_PASSWORD"]
 EXPORTER_PORT = int(os.environ.get("EXPORTER_PORT", "9617"))
 SCRAPE_INTERVAL = int(os.environ.get("SCRAPE_INTERVAL", "15"))
 
-BASE_URL = f"http://{PIHOLE_HOST}/api"
+BASE_URL = f"http://{PIHOLE_HOST}:{PIHOLE_PORT}/api"
 
 # Metrics
 queries_total = Gauge("pihole_dns_queries_total", "Total DNS queries")
