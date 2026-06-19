@@ -6,7 +6,7 @@ Raspberry Pi 5 homelab. Shared here because the problems solved are generic
 SRE problems that show up at any scale: monitoring a device with no native
 exporter, surviving an upstream API breaking change, getting cron-based
 jobs to actually run with the right permissions, and alerting on host,
-container, Kubernetes-object, and external-probe health.
+container, Kubernetes-object, external-probe, and GitOps-sync health.
 
 ## What's here
 
@@ -18,26 +18,30 @@ exporters/
                        cron/permissions gotchas documented
   pihole6/            Notes + minimal exporter for Pi-hole v6's new
                        session-based API (v5 exporters broke on upgrade)
-  blackbox/           blackbox_exporter config + systemd unit: HTTP/TLS
+  blackbox/            blackbox_exporter config + systemd unit: HTTP/TLS
                        probing of every *.homelab.local service from the
                        outside in, including TLS cert expiry tracking
 
 alerting/
-  alerts.yml           Prometheus alerting rules: host-level health
-                       (CPU/memory/disk/temp/key services) and per-container
-                       health via cAdvisor metrics
-  cadvisor-alerts.yml  Production cAdvisor alert rules (CPU throttling,
-                       memory limits, OOM kills, network errors, disk) —
-                       a filled-in version of the per-container examples
-                       above, running against a real Pi 5 + k3s workload
-  k3s-alerts.yml       Kubernetes-object-level alert rules via
-                       kube-state-metrics: Pod crash loops, Job/CronJob
-                       failures, Deployment/StatefulSet replica mismatches,
-                       PVC capacity — the layer cAdvisor can't see, since
-                       cAdvisor only knows about cgroups, not k8s objects
-  blackbox-alerts.yml  External HTTP/TLS probe alerts: service down,
-                       slow response, TLS cert expiring (30-day warning,
-                       7-day critical escalation)
+  alerts.yml            Prometheus alerting rules: host-level health
+                        (CPU/memory/disk/temp/key services) and per-container
+                        health via cAdvisor metrics
+  cadvisor-alerts.yml   Production cAdvisor alert rules (CPU throttling,
+                        memory limits, OOM kills, network errors, disk) —
+                        a filled-in version of the per-container examples
+                        above, running against a real Pi 5 + k3s workload
+  k3s-alerts.yml        Kubernetes-object-level alert rules via
+                        kube-state-metrics: Pod crash loops, Job/CronJob
+                        failures, Deployment/StatefulSet replica mismatches,
+                        PVC capacity — the layer cAdvisor can't see, since
+                        cAdvisor only knows about cgroups, not k8s objects
+  blackbox-alerts.yml   External HTTP/TLS probe alerts: service down,
+                        slow response, TLS cert expiring (30-day warning,
+                        7-day critical escalation)
+  argocd-alerts.yml     GitOps sync/health alerts: OutOfSync, Degraded,
+                        Missing resources, stuck Progressing — catches
+                        drift between git and cluster state, and failed
+                        or stalled deployments
 
 docs/postmortems/
   2026-06-02-pihole-v6-exporter-outage.md
@@ -75,6 +79,7 @@ flowchart LR
     KSM[kube-state-metrics] -->|HTTP /metrics| Prom
     BB[blackbox_exporter] -->|probes *.homelab.local| Services[(Traefik / k3s services)]
     BB -->|HTTP /metrics| Prom
+    AC[argocd-metrics] -->|HTTP /metrics| Prom
     Prom -->|alerts| AM[Alertmanager]
     AM -->|webhook| Bridge[alertmanager-telegram-bridge]
     Prom --> Graf[Grafana]
@@ -82,12 +87,13 @@ flowchart LR
 
 ## Alerting
 
-Four layers, each covering what the layer below it can't see:
+Five layers, each covering what the layer below it can't see:
 
 - **Host** (`alerting/alerts.yml`, group `homelab`) — `NodeDown`, `HighCPU` (>85%, 5m), `HighMemory` (>85%, 5m), `DiskSpaceLow` (>80%, 5m), `HighTemperature` (>70°C, 2m), `PiholeDown`, `PrometheusDown`
 - **Container** (`alerting/alerts.yml` group `containers`, plus the production `alerting/cadvisor-alerts.yml`) — per-container CPU/memory/throttling/OOM/network/filesystem via [cAdvisor](https://github.com/google/cadvisor). cAdvisor sees cgroups — actual resource consumption — but has no concept of a Kubernetes Pod, Deployment, or CronJob.
 - **Kubernetes object** (`alerting/k3s-alerts.yml`) — Pod crash loops, Pods stuck Pending/Unknown/Failed, Deployment/StatefulSet replica mismatches, **Job/CronJob failures**, PVC capacity, via [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics). This is the layer that catches "the CronJob's pod exited 0/1 with BackoffLimitExceeded" — something no amount of cgroup-level CPU/memory monitoring will ever surface, because the container can be perfectly healthy resource-wise and still be crashing on a bad env var or bug.
 - **External probe** (`alerting/blackbox-alerts.yml`) — HTTP/TLS checks against every `*.homelab.local` URL from the outside, via [blackbox_exporter](https://github.com/prometheus/blackbox_exporter). Catches what none of the above can: Traefik routing misconfigurations, DNS issues, and TLS certificates approaching expiry (30-day warning, 7-day critical) — all things that can break access to a perfectly healthy backend.
+- **GitOps sync** (`alerting/argocd-alerts.yml`) — ArgoCD application sync and health status via its built-in `argocd-metrics` endpoint. Catches drift between what's in git and what's actually running (`OutOfSync`), deployments that are broken (`Degraded`), resources that vanished (`Missing`), and syncs that never finish (`Progressing` for 30+ minutes). None of the layers above know or care whether the cluster state matches the source of truth in git — this is the only layer that does.
 
 Container names in the example rules in `alerts.yml` are placeholders — swap them for your own. Pair all of this with [alertmanager-telegram-bridge](https://github.com/bibigon14/alertmanager-telegram-bridge) to get alerts delivered to Telegram with quiet hours, throttling, and label-based routing.
 
@@ -96,6 +102,8 @@ Container names in the example rules in `alerts.yml` are placeholders — swap t
 `alerting/k3s-alerts.yml` is 8 rules scoped to a single namespace (swap `homelab` for your own), including a watchdog on the kube-state-metrics scrape target itself. `KubeJobFailed` is the one that actually catches application bugs — e.g. an env var collision with a Kubernetes auto-injected `<SERVICE>_PORT` variable causing a CronJob to crash on every run with no resource-level symptom at all.
 
 `alerting/blackbox-alerts.yml` is 5 rules: service-down, slow-response, two TLS-expiry thresholds (escalating from warning to critical), and a watchdog on blackbox_exporter itself. Since the homelab uses a self-signed CA for `*.homelab.local`, the blackbox module sets `insecure_skip_verify: true` — the goal is "is the service up and is the cert close to expiring," not full chain-of-trust validation.
+
+`alerting/argocd-alerts.yml` is 5 rules built on `argocd_app_info`'s `sync_status`/`health_status` labels, plus a watchdog on the argocd-metrics scrape target itself. Since Prometheus runs on the host rather than in-cluster, `argocd-metrics` (ClusterIP by default) needs to be exposed via NodePort the same way as kube-state-metrics.
 
 To test the full alert lifecycle end-to-end: stop a monitored container, wait for `ContainerDown` to go from pending to firing (~70s with the rules above), confirm the Telegram alert arrives, restart the container, and confirm the resolved notification arrives after Alertmanager's `resolve_timeout`.
 
@@ -120,9 +128,11 @@ To test the full alert lifecycle end-to-end: stop a monitored container, wait fo
 
 6. Install `blackbox_exporter` as a systemd service (see `exporters/blackbox/blackbox_exporter.service` and `blackbox.yml`) if you want external HTTP/TLS probing. Add a `blackbox-homelab-https` scrape job to `prometheus.yml` using the standard blackbox `relabel_configs` pattern (target → `__param_target` → `instance`, address rewritten to the exporter's own `host:9115`).
 
-7. Copy `alerting/alerts.yml`, `alerting/cadvisor-alerts.yml`, `alerting/k3s-alerts.yml`, and `alerting/blackbox-alerts.yml` to your Prometheus rules directory (e.g. `/etc/prometheus/rules/`), reference them in `prometheus.yml`'s `rule_files`, and reload Prometheus.
+7. If running ArgoCD, expose its built-in `argocd-metrics` Service via NodePort (same reasoning as kube-state-metrics — Prometheus is outside the cluster) and add it as a scrape target if you want GitOps sync/health alerting.
 
-8. Import dashboards from `grafana/dashboards/` into Grafana, pointing at
+8. Copy `alerting/alerts.yml`, `alerting/cadvisor-alerts.yml`, `alerting/k3s-alerts.yml`, `alerting/blackbox-alerts.yml`, and `alerting/argocd-alerts.yml` to your Prometheus rules directory (e.g. `/etc/prometheus/rules/`), reference them in `prometheus.yml`'s `rule_files`, and reload Prometheus.
+
+9. Import dashboards from `grafana/dashboards/` into Grafana, pointing at
    your Prometheus datasource.
 
 ## License
