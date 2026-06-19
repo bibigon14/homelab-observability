@@ -23,6 +23,10 @@ alerting/
   alerts.yml           Prometheus alerting rules: host-level health
                        (CPU/memory/disk/temp/key services) and per-container
                        health via cAdvisor metrics
+  cadvisor-alerts.yml  Production cAdvisor alert rules (CPU throttling,
+                       memory limits, OOM kills, network errors, disk) —
+                       a filled-in version of the per-container examples
+                       above, running against a real Pi 5 + k3s workload
 
 docs/postmortems/
   2026-06-02-pihole-v6-exporter-outage.md
@@ -31,7 +35,10 @@ docs/postmortems/
                        root cause, fix, and follow-ups.
 
 grafana/
-  dashboards/          Exported Grafana dashboard JSON for the above
+  dashboards/
+    homelab-observability.json   Exported Grafana dashboard JSON for the above
+    cadvisor-dashboard.json      Full cAdvisor dashboard: CPU/mem/net/blkio
+                                  per container, top-N tables, throttling
 ```
 
 ## Why "textfile collector" exporters?
@@ -68,6 +75,8 @@ flowchart LR
 
 Container names in the example rules are placeholders — swap them for your own. Pair this with [alertmanager-telegram-bridge](https://github.com/bibigon14/alertmanager-telegram-bridge) to get these delivered to Telegram with quiet hours, throttling, and label-based routing.
 
+`alerting/cadvisor-alerts.yml` is the production version of the container rules above — 9 alerts covering CPU throttling, memory-limit pressure, OOM kills, frequent restarts, filesystem usage (container and host), network errors, and a watchdog on the cAdvisor scrape target itself.
+
 To test the full alert lifecycle end-to-end: stop a monitored container, wait for `ContainerDown` to go from pending to firing (~70s with the rules above), confirm the Telegram alert arrives, restart the container, and confirm the resolved notification arrives after Alertmanager's `resolve_timeout`.
 
 ## Setup
@@ -87,7 +96,7 @@ To test the full alert lifecycle end-to-end: stop a monitored container, wait fo
 
 4. Deploy [cAdvisor](https://github.com/google/cadvisor) (`docker run gcr.io/cadvisor/cadvisor:latest`) and add it as a Prometheus scrape target if you want container-level alerting.
 
-5. Copy `alerting/alerts.yml` to your Prometheus rules directory (e.g. `/etc/prometheus/alerts.yml`), reference it in `prometheus.yml`'s `rule_files`, and reload Prometheus.
+5. Copy `alerting/alerts.yml` (and `alerting/cadvisor-alerts.yml` for the production container rules) to your Prometheus rules directory (e.g. `/etc/prometheus/rules/`), reference them in `prometheus.yml`'s `rule_files`, and reload Prometheus.
 
 6. Import dashboards from `grafana/dashboards/` into Grafana, pointing at
    your Prometheus datasource.

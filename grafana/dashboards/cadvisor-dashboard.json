@@ -1,0 +1,411 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "cadvisor-full",
+    "title": "cAdvisor - Containers Deep Dive",
+    "tags": ["cadvisor", "containers", "homelab"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "30s",
+    "time": { "from": "now-3h", "to": "now" },
+    "templating": {
+      "list": [
+        {
+          "name": "datasource",
+          "type": "datasource",
+          "query": "prometheus",
+          "current": {}
+        },
+        {
+          "name": "container",
+          "type": "query",
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "query": "label_values(container_last_seen{name!=\"\"}, name)",
+          "refresh": 2,
+          "multi": true,
+          "includeAll": true,
+          "current": { "text": "All", "value": "$__all" }
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "row",
+        "title": "Overview",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+        "collapsed": false
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Running Containers",
+        "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          { "expr": "count(container_last_seen{name!=\"\"})", "refId": "A" }
+        ],
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Total CPU Usage (cores)",
+        "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          { "expr": "sum(rate(container_cpu_usage_seconds_total{name!=\"\"}[5m]))", "refId": "A" }
+        ],
+        "fieldConfig": { "defaults": { "unit": "short", "decimals": 2 } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Total Memory Usage",
+        "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          { "expr": "sum(container_memory_usage_bytes{name!=\"\"})", "refId": "A" }
+        ],
+        "fieldConfig": { "defaults": { "unit": "bytes" } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" }
+      },
+      {
+        "id": 5,
+        "type": "stat",
+        "title": "Containers OOM-Killed (1h)",
+        "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          { "expr": "sum(increase(container_oom_events_total[1h]))", "refId": "A" }
+        ],
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "red", "value": 1 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "type": "stat",
+        "title": "CPU Throttled Containers",
+        "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          { "expr": "count(rate(container_cpu_cfs_throttled_periods_total{name!=\"\"}[5m]) > 0)", "refId": "A" }
+        ],
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "orange", "value": 1 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "type": "stat",
+        "title": "Host Filesystem Usage",
+        "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          { "expr": "max(container_fs_usage_bytes{id=\"/\"}) / max(container_fs_limit_bytes{id=\"/\"}) * 100", "refId": "A" }
+        ],
+        "fieldConfig": { "defaults": { "unit": "percent", "decimals": 1 } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" }
+      },
+
+      { "id": 10, "type": "row", "title": "CPU", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }, "collapsed": false },
+      {
+        "id": 11,
+        "type": "timeseries",
+        "title": "CPU Usage per Container (cores)",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"$container\"}[5m])) by (name)",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+      {
+        "id": 12,
+        "type": "timeseries",
+        "title": "CPU Throttling (% periods throttled)",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(rate(container_cpu_cfs_throttled_periods_total{name=~\"$container\"}[5m])) by (name) / sum(rate(container_cpu_cfs_periods_total{name=~\"$container\"}[5m])) by (name) * 100",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "percent", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+      {
+        "id": 13,
+        "type": "bargauge",
+        "title": "Top 10 CPU Consumers (current)",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "topk(10, sum(rate(container_cpu_usage_seconds_total{name!=\"\"}[5m])) by (name))",
+            "legendFormat": "{{name}}",
+            "refId": "A",
+            "instant": true
+          }
+        ],
+        "options": { "orientation": "horizontal", "displayMode": "gradient" },
+        "fieldConfig": { "defaults": { "unit": "short", "decimals": 3 } }
+      },
+
+      { "id": 20, "type": "row", "title": "Memory", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 }, "collapsed": false },
+      {
+        "id": 21,
+        "type": "timeseries",
+        "title": "Memory Usage per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(container_memory_usage_bytes{name=~\"$container\"}) by (name)",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+      {
+        "id": 22,
+        "type": "timeseries",
+        "title": "Memory Working Set per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(container_memory_working_set_bytes{name=~\"$container\"}) by (name)",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+      {
+        "id": 23,
+        "type": "bargauge",
+        "title": "Top 10 Memory Consumers (current)",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 31 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "topk(10, sum(container_memory_usage_bytes{name!=\"\"}) by (name))",
+            "legendFormat": "{{name}}",
+            "refId": "A",
+            "instant": true
+          }
+        ],
+        "options": { "orientation": "horizontal", "displayMode": "gradient" },
+        "fieldConfig": { "defaults": { "unit": "bytes" } }
+      },
+      {
+        "id": 24,
+        "type": "timeseries",
+        "title": "Memory Cache vs RSS per Container",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 39 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(container_memory_cache{name=~\"$container\"}) by (name)",
+            "legendFormat": "{{name}} - cache",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(container_memory_rss{name=~\"$container\"}) by (name)",
+            "legendFormat": "{{name}} - rss",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+
+      { "id": 30, "type": "row", "title": "Network I/O", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 47 }, "collapsed": false },
+      {
+        "id": 31,
+        "type": "timeseries",
+        "title": "Network Receive per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 48 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(rate(container_network_receive_bytes_total{name=~\"$container\"}[5m])) by (name)",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+      {
+        "id": 32,
+        "type": "timeseries",
+        "title": "Network Transmit per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 48 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(rate(container_network_transmit_bytes_total{name=~\"$container\"}[5m])) by (name)",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+      {
+        "id": 33,
+        "type": "timeseries",
+        "title": "Network Errors & Drops per Container",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 56 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(rate(container_network_receive_errors_total{name=~\"$container\"}[5m])) by (name)",
+            "legendFormat": "{{name}} - rx errors",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(container_network_transmit_errors_total{name=~\"$container\"}[5m])) by (name)",
+            "legendFormat": "{{name}} - tx errors",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(rate(container_network_receive_packets_dropped_total{name=~\"$container\"}[5m])) by (name)",
+            "legendFormat": "{{name}} - rx dropped",
+            "refId": "C"
+          },
+          {
+            "expr": "sum(rate(container_network_transmit_packets_dropped_total{name=~\"$container\"}[5m])) by (name)",
+            "legendFormat": "{{name}} - tx dropped",
+            "refId": "D"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "pps", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+
+      { "id": 40, "type": "row", "title": "Block I/O & Filesystem", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 64 }, "collapsed": false },
+      {
+        "id": 41,
+        "type": "timeseries",
+        "title": "Block I/O Read per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 65 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(rate(container_blkio_device_usage_total{name=~\"$container\", operation=\"Read\"}[5m])) by (name)",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+      {
+        "id": 42,
+        "type": "timeseries",
+        "title": "Block I/O Write per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 65 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(rate(container_blkio_device_usage_total{name=~\"$container\", operation=\"Write\"}[5m])) by (name)",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+      {
+        "id": 43,
+        "type": "timeseries",
+        "title": "Filesystem Usage per Container",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 73 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(container_fs_usage_bytes{name=~\"$container\"}) by (name)",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+
+      { "id": 50, "type": "row", "title": "Processes & Misc", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 81 }, "collapsed": false },
+      {
+        "id": 51,
+        "type": "timeseries",
+        "title": "Process Count per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 82 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(container_processes{name=~\"$container\"}) by (name)",
+            "legendFormat": "{{name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+      {
+        "id": 52,
+        "type": "timeseries",
+        "title": "File Descriptors Usage per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 82 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(container_file_descriptors{name=~\"$container\"}) by (name)",
+            "legendFormat": "{{name}} - open",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "lineWidth": 1 } } }
+      },
+      {
+        "id": 53,
+        "type": "table",
+        "title": "Container Inventory (last seen, uptime)",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 90 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "container_last_seen{name=~\"$container\"}",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          { "id": "organize", "options": { "excludeByName": { "Time": true, "Value": true, "__name__": true } } }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}

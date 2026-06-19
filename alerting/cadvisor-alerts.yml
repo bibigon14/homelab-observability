@@ -1,0 +1,89 @@
+groups:
+  - name: cadvisor-container-alerts
+    rules:
+      - alert: ContainerHighCPUUsage
+        expr: sum(rate(container_cpu_usage_seconds_total{name!=""}[5m])) by (name) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} high CPU usage"
+          description: "Container {{ $labels.name }} has used more than 0.9 cores for 10 minutes (current: {{ $value | printf \"%.2f\" }} cores)."
+
+      - alert: ContainerCPUThrottlingHigh
+        expr: |
+          (sum(rate(container_cpu_cfs_throttled_periods_total{name!=""}[5m])) by (name)
+          / sum(rate(container_cpu_cfs_periods_total{name!=""}[5m])) by (name)) * 100 > 25
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} is being CPU throttled"
+          description: "{{ $value | printf \"%.1f\" }}% of CPU periods throttled for {{ $labels.name }} over last 5m."
+
+      - alert: ContainerHighMemoryUsage
+        expr: |
+          (sum(container_memory_working_set_bytes{name!=""}) by (name)
+          / sum(container_spec_memory_limit_bytes{name!="", container_spec_memory_limit_bytes > 0}) by (name)) * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} near memory limit"
+          description: "{{ $labels.name }} is using {{ $value | printf \"%.1f\" }}% of its memory limit."
+
+      - alert: ContainerOOMKilled
+        expr: increase(container_oom_events_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container {{ $labels.name }} was OOM-killed"
+          description: "{{ $labels.name }} experienced an OOM event in the last 5 minutes."
+
+      - alert: ContainerRestartingFrequently
+        expr: increase(container_last_seen{name!=""}[15m]) == 0 and changes(container_start_time_seconds{name!=""}[1h]) > 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} restarting frequently"
+          description: "{{ $labels.name }} has restarted more than 3 times in the last hour."
+
+      - alert: ContainerFilesystemNearFull
+        expr: (container_fs_usage_bytes{id!="/"} / container_fs_limit_bytes{id!="/"}) * 100 > 85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} filesystem near full"
+          description: "{{ $labels.name }} filesystem usage at {{ $value | printf \"%.1f\" }}%."
+
+      - alert: HostFilesystemNearFull
+        expr: (container_fs_usage_bytes{id="/"} / container_fs_limit_bytes{id="/"}) * 100 > 85
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host root filesystem near full"
+          description: "Root filesystem usage at {{ $value | printf \"%.1f\" }}% on homebridge."
+
+      - alert: ContainerNetworkErrorsHigh
+        expr: |
+          sum(rate(container_network_receive_errors_total{name!=""}[5m])) by (name)
+          + sum(rate(container_network_transmit_errors_total{name!=""}[5m])) by (name) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} network errors elevated"
+          description: "{{ $labels.name }} is generating {{ $value | printf \"%.2f\" }} network errors/sec."
+
+      - alert: CadvisorTargetDown
+        expr: up{job="cadvisor"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "cAdvisor target down"
+          description: "Prometheus cannot scrape cAdvisor on homebridge for over 2 minutes."
