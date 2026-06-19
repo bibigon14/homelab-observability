@@ -1,0 +1,84 @@
+groups:
+  - name: k3s-kubernetes-alerts
+    rules:
+      - alert: KubePodCrashLooping
+        expr: increase(kube_pod_container_status_restarts_total{namespace="homelab"}[15m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} crash looping"
+          description: "Container {{ $labels.container }} has restarted {{ $value | printf \"%.0f\" }} times in the last 15 minutes."
+
+      - alert: KubePodNotReady
+        expr: |
+          sum by (namespace, pod) (
+            max by (namespace, pod) (kube_pod_status_phase{namespace="homelab", phase=~"Pending|Unknown|Failed"}) == 1
+          )
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} not ready"
+          description: "Pod has been in a non-running phase for more than 10 minutes."
+
+      - alert: KubeDeploymentReplicasMismatch
+        expr: |
+          kube_deployment_spec_replicas{namespace="homelab"}
+          != kube_deployment_status_replicas_available{namespace="homelab"}
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} replica mismatch"
+          description: "Deployment has {{ $labels.deployment }} desired replicas not matching available replicas for over 10 minutes."
+
+      - alert: KubeJobFailed
+        expr: kube_job_status_failed{namespace="homelab"} > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Job {{ $labels.namespace }}/{{ $labels.job_name }} failed"
+          description: "Job {{ $labels.job_name }} has failed pod(s). Check CronJob {{ $labels.job_name }} logs."
+
+      - alert: KubeCronJobMissedSchedule
+        expr: |
+          (time() - kube_cronjob_status_last_schedule_time{namespace="homelab"}) > 3 * 3600
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} missed its schedule"
+          description: "CronJob has not run successfully in over 3 hours — check if it's suspended or the controller is stuck."
+
+      - alert: KubePersistentVolumeClaimNearFull
+        expr: |
+          (kubelet_volume_stats_used_bytes{namespace="homelab"}
+          / kubelet_volume_stats_capacity_bytes{namespace="homelab"}) * 100 > 85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} near full"
+          description: "PVC usage at {{ $value | printf \"%.1f\" }}%."
+
+      - alert: KubeStatefulSetReplicasMismatch
+        expr: |
+          kube_statefulset_status_replicas_ready{namespace="homelab"}
+          != kube_statefulset_status_replicas{namespace="homelab"}
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "StatefulSet {{ $labels.namespace }}/{{ $labels.statefulset }} replica mismatch"
+          description: "Not all StatefulSet replicas are ready for over 10 minutes."
+
+      - alert: KubeStateMetricsTargetDown
+        expr: up{job="kube-state-metrics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "kube-state-metrics target down"
+          description: "Prometheus cannot scrape kube-state-metrics on homebridge for over 2 minutes — k8s-level alerting is blind."
