@@ -6,7 +6,7 @@ Raspberry Pi 5 homelab. Shared here because the problems solved are generic
 SRE problems that show up at any scale: monitoring a device with no native
 exporter, surviving an upstream API breaking change, getting cron-based
 jobs to actually run with the right permissions, and alerting on host,
-container, and Kubernetes-object health.
+container, Kubernetes-object, and external-probe health.
 
 ## What's here
 
@@ -18,6 +18,9 @@ exporters/
                        cron/permissions gotchas documented
   pihole6/            Notes + minimal exporter for Pi-hole v6's new
                        session-based API (v5 exporters broke on upgrade)
+  blackbox/           blackbox_exporter config + systemd unit: HTTP/TLS
+                       probing of every *.homelab.local service from the
+                       outside in, including TLS cert expiry tracking
 
 alerting/
   alerts.yml           Prometheus alerting rules: host-level health
@@ -32,6 +35,9 @@ alerting/
                        failures, Deployment/StatefulSet replica mismatches,
                        PVC capacity — the layer cAdvisor can't see, since
                        cAdvisor only knows about cgroups, not k8s objects
+  blackbox-alerts.yml  External HTTP/TLS probe alerts: service down,
+                       slow response, TLS cert expiring (30-day warning,
+                       7-day critical escalation)
 
 docs/postmortems/
   2026-06-02-pihole-v6-exporter-outage.md
@@ -67,6 +73,8 @@ flowchart LR
     NE -->|HTTP /metrics| Prom
     CA[cAdvisor] -->|HTTP /metrics| Prom
     KSM[kube-state-metrics] -->|HTTP /metrics| Prom
+    BB[blackbox_exporter] -->|probes *.homelab.local| Services[(Traefik / k3s services)]
+    BB -->|HTTP /metrics| Prom
     Prom -->|alerts| AM[Alertmanager]
     AM -->|webhook| Bridge[alertmanager-telegram-bridge]
     Prom --> Graf[Grafana]
@@ -74,17 +82,20 @@ flowchart LR
 
 ## Alerting
 
-Three layers, each covering what the layer below it can't see:
+Four layers, each covering what the layer below it can't see:
 
 - **Host** (`alerting/alerts.yml`, group `homelab`) — `NodeDown`, `HighCPU` (>85%, 5m), `HighMemory` (>85%, 5m), `DiskSpaceLow` (>80%, 5m), `HighTemperature` (>70°C, 2m), `PiholeDown`, `PrometheusDown`
 - **Container** (`alerting/alerts.yml` group `containers`, plus the production `alerting/cadvisor-alerts.yml`) — per-container CPU/memory/throttling/OOM/network/filesystem via [cAdvisor](https://github.com/google/cadvisor). cAdvisor sees cgroups — actual resource consumption — but has no concept of a Kubernetes Pod, Deployment, or CronJob.
 - **Kubernetes object** (`alerting/k3s-alerts.yml`) — Pod crash loops, Pods stuck Pending/Unknown/Failed, Deployment/StatefulSet replica mismatches, **Job/CronJob failures**, PVC capacity, via [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics). This is the layer that catches "the CronJob's pod exited 0/1 with BackoffLimitExceeded" — something no amount of cgroup-level CPU/memory monitoring will ever surface, because the container can be perfectly healthy resource-wise and still be crashing on a bad env var or bug.
+- **External probe** (`alerting/blackbox-alerts.yml`) — HTTP/TLS checks against every `*.homelab.local` URL from the outside, via [blackbox_exporter](https://github.com/prometheus/blackbox_exporter). Catches what none of the above can: Traefik routing misconfigurations, DNS issues, and TLS certificates approaching expiry (30-day warning, 7-day critical) — all things that can break access to a perfectly healthy backend.
 
 Container names in the example rules in `alerts.yml` are placeholders — swap them for your own. Pair all of this with [alertmanager-telegram-bridge](https://github.com/bibigon14/alertmanager-telegram-bridge) to get alerts delivered to Telegram with quiet hours, throttling, and label-based routing.
 
 `alerting/cadvisor-alerts.yml` is the production version of the container rules above — 9 alerts covering CPU throttling, memory-limit pressure, OOM kills, frequent restarts, filesystem usage (container and host), network errors, and a watchdog on the cAdvisor scrape target itself.
 
 `alerting/k3s-alerts.yml` is 8 rules scoped to a single namespace (swap `homelab` for your own), including a watchdog on the kube-state-metrics scrape target itself. `KubeJobFailed` is the one that actually catches application bugs — e.g. an env var collision with a Kubernetes auto-injected `<SERVICE>_PORT` variable causing a CronJob to crash on every run with no resource-level symptom at all.
+
+`alerting/blackbox-alerts.yml` is 5 rules: service-down, slow-response, two TLS-expiry thresholds (escalating from warning to critical), and a watchdog on blackbox_exporter itself. Since the homelab uses a self-signed CA for `*.homelab.local`, the blackbox module sets `insecure_skip_verify: true` — the goal is "is the service up and is the cert close to expiring," not full chain-of-trust validation.
 
 To test the full alert lifecycle end-to-end: stop a monitored container, wait for `ContainerDown` to go from pending to firing (~70s with the rules above), confirm the Telegram alert arrives, restart the container, and confirm the resolved notification arrives after Alertmanager's `resolve_timeout`.
 
@@ -107,9 +118,11 @@ To test the full alert lifecycle end-to-end: stop a monitored container, wait fo
 
 5. Deploy [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) (see `homelab-k3s/charts/kube-state-metrics`) and add it as a Prometheus scrape target if you want Kubernetes-object-level alerting. If Prometheus runs outside the cluster (as it does here, on the host via systemd), expose it via NodePort rather than relying on ClusterIP.
 
-6. Copy `alerting/alerts.yml`, `alerting/cadvisor-alerts.yml`, and `alerting/k3s-alerts.yml` to your Prometheus rules directory (e.g. `/etc/prometheus/rules/`), reference them in `prometheus.yml`'s `rule_files`, and reload Prometheus.
+6. Install `blackbox_exporter` as a systemd service (see `exporters/blackbox/blackbox_exporter.service` and `blackbox.yml`) if you want external HTTP/TLS probing. Add a `blackbox-homelab-https` scrape job to `prometheus.yml` using the standard blackbox `relabel_configs` pattern (target → `__param_target` → `instance`, address rewritten to the exporter's own `host:9115`).
 
-7. Import dashboards from `grafana/dashboards/` into Grafana, pointing at
+7. Copy `alerting/alerts.yml`, `alerting/cadvisor-alerts.yml`, `alerting/k3s-alerts.yml`, and `alerting/blackbox-alerts.yml` to your Prometheus rules directory (e.g. `/etc/prometheus/rules/`), reference them in `prometheus.yml`'s `rule_files`, and reload Prometheus.
+
+8. Import dashboards from `grafana/dashboards/` into Grafana, pointing at
    your Prometheus datasource.
 
 ## License
