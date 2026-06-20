@@ -1,0 +1,215 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "loki-logs",
+    "title": "Logs - Homelab (Loki)",
+    "tags": ["loki", "logs", "homelab"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "30s",
+    "time": { "from": "now-1h", "to": "now" },
+    "templating": {
+      "list": [
+        {
+          "name": "datasource",
+          "type": "datasource",
+          "query": "loki",
+          "current": {}
+        },
+        {
+          "name": "pod",
+          "type": "query",
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "query": "label_values({namespace=\"homelab\"}, pod)",
+          "refresh": 2,
+          "multi": true,
+          "includeAll": true,
+          "current": { "text": "All", "value": "$__all" }
+        },
+        {
+          "name": "level",
+          "type": "custom",
+          "query": "error,warning,info,unknown",
+          "multi": true,
+          "includeAll": true,
+          "current": { "text": "All", "value": "$__all" }
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "row",
+        "title": "Overview",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+        "collapsed": false
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Total Log Lines (1h)",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+        "datasource": { "type": "loki", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} [1h]))",
+            "refId": "A"
+          }
+        ],
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Error Lines (1h)",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+        "datasource": { "type": "loki", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)error` [1h]))",
+            "refId": "A"
+          }
+        ],
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "orange", "value": 1 },
+                { "color": "red", "value": 50 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Active Pods Logging",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+        "datasource": { "type": "loki", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "count(count by (pod) (count_over_time({namespace=\"homelab\"} [1h])))",
+            "refId": "A",
+            "instant": true
+          }
+        ],
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" }
+      },
+      {
+        "id": 5,
+        "type": "stat",
+        "title": "Error Rate",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+        "datasource": { "type": "loki", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(rate({namespace=\"homelab\"} |~ `(?i)error` [5m]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "short", "decimals": 2 } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" }
+      },
+
+      { "id": 10, "type": "row", "title": "Log Volume", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }, "collapsed": false },
+      {
+        "id": 11,
+        "type": "timeseries",
+        "title": "Log Volume by Level",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+        "datasource": { "type": "loki", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)error` [5m]))",
+            "legendFormat": "error",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)warn` [5m]))",
+            "legendFormat": "warning",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)info` [5m]))",
+            "legendFormat": "info",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } },
+          "overrides": [
+            { "matcher": { "id": "byName", "options": "error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+            { "matcher": { "id": "byName", "options": "warning" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+            { "matcher": { "id": "byName", "options": "info" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] }
+          ]
+        }
+      },
+      {
+        "id": 12,
+        "type": "bargauge",
+        "title": "Log Lines by Pod (current window)",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+        "datasource": { "type": "loki", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "topk(15, sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} [1h])) by (pod))",
+            "legendFormat": "{{pod}}",
+            "refId": "A",
+            "instant": true
+          }
+        ],
+        "options": { "orientation": "horizontal", "displayMode": "gradient" }
+      },
+
+      { "id": 20, "type": "row", "title": "Errors", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 }, "collapsed": false },
+      {
+        "id": 21,
+        "type": "logs",
+        "title": "Recent Errors (all pods)",
+        "gridPos": { "h": 10, "w": 24, "x": 0, "y": 23 },
+        "datasource": { "type": "loki", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "{namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)error`",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "wrapLogMessage": true,
+          "sortOrder": "Descending",
+          "enableLogDetails": true
+        }
+      },
+
+      { "id": 30, "type": "row", "title": "Live Logs", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 }, "collapsed": false },
+      {
+        "id": 31,
+        "type": "logs",
+        "title": "All Logs (filtered by pod + level above)",
+        "gridPos": { "h": 14, "w": 24, "x": 0, "y": 34 },
+        "datasource": { "type": "loki", "uid": "${datasource}" },
+        "targets": [
+          {
+            "expr": "{namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)$level`",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "wrapLogMessage": true,
+          "sortOrder": "Descending",
+          "enableLogDetails": true
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}
