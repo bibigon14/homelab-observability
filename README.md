@@ -52,8 +52,21 @@ docs/postmortems/
 grafana/
   dashboards/
     homelab-observability.json   Exported Grafana dashboard JSON for the above
-    cadvisor-dashboard.json      Full cAdvisor dashboard: CPU/mem/net/blkio
-                                  per container, top-N tables, throttling
+    cadvisor-dashboard.json      cAdvisor: CPU/mem/net/blkio per container,
+                                  OOM events, CPU pressure stall (PSI)
+    loki-dashboard.json          Loki logs: volume by level, error rate,
+                                  top pods, filterable live log viewer
+    iptv-monitor.json            IPTV server health: mtr latency, jitter,
+                                  download speeds, server switching history
+    node-exporter-full.json      Node Exporter: full host metrics (CPU, RAM,
+                                  disk, network, temperature, systemd)
+    router-asus-rt-be88u.json    Router: CPU/temp/memory/connected clients
+    pihole-monitor.json          Pi-hole: queries, blocked %, top domains
+    homebridge-monitor.json      Homebridge: device status, plugin health
+    telegram-bots.json           Telegram bots: API latency, message rates
+
+docs/
+  screenshots/                   Dashboard screenshots for portfolio/README
 ```
 
 ## Why "textfile collector" exporters?
@@ -106,6 +119,35 @@ Container names in the example rules in `alerts.yml` are placeholders — swap t
 `alerting/argocd-alerts.yml` is 5 rules built on `argocd_app_info`'s `sync_status`/`health_status` labels, plus a watchdog on the argocd-metrics scrape target itself. Since Prometheus runs on the host rather than in-cluster, `argocd-metrics` (ClusterIP by default) needs to be exposed via NodePort the same way as kube-state-metrics.
 
 To test the full alert lifecycle end-to-end: stop a monitored container, wait for `ContainerDown` to go from pending to firing (~70s with the rules above), confirm the Telegram alert arrives, restart the container, and confirm the resolved notification arrives after Alertmanager's `resolve_timeout`.
+
+## Dashboards
+
+All dashboards are exported to `grafana/dashboards/` and can be imported via the Grafana API or UI. Nine dashboards covering host, container, Kubernetes, logs, networking, and application metrics:
+
+### Node Exporter — Host Metrics
+![Node Exporter](docs/screenshots/node-1.png)
+![Node Exporter](docs/screenshots/node-2.png)
+
+### cAdvisor — Container Deep Dive
+![cAdvisor](docs/screenshots/cadvisor.png)
+
+### Loki — Centralized Logs
+![Loki Logs](docs/screenshots/loki-1.png)
+![Loki Logs](docs/screenshots/loki-2.png)
+
+### IPTV Monitor
+![IPTV](docs/screenshots/iptv-1.png)
+![IPTV](docs/screenshots/iptv-2.png)
+
+### Pi-hole Monitor
+![Pi-hole](docs/screenshots/pihole.png)
+
+### Router Asus RT-BE88U
+![Router](docs/screenshots/router.png)
+
+### Telegram Bots
+![Telegram](docs/screenshots/telegram-1.png)
+![Telegram](docs/screenshots/telegram-2.png)
 
 ## Setup
 
