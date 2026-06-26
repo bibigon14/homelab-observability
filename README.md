@@ -149,6 +149,10 @@ All dashboards are exported to `grafana/dashboards/` and can be imported via the
 ![Telegram](docs/screenshots/telegram-1.png)
 ![Telegram](docs/screenshots/telegram-2.png)
 
+### SLO Error Budgets
+![SLO Error Budgets](docs/screenshots/slo-1.png)
+![SLO Error Budgets](docs/screenshots/slo-2.png)
+
 ## Setup
 
 1. Enable the textfile collector on `node_exporter`:
