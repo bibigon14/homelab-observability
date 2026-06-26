@@ -1,8 +1,6 @@
 # Homelab Observability
 
-A small collection of Prometheus textfile-collector exporters, alerting
-rules, and an incident postmortem from running Prometheus + Grafana on a
-Raspberry Pi 5 homelab. Shared here because the problems solved are generic
+A collection of Prometheus exporters, alerting rules, Grafana dashboards, and an incident postmortem from running a complete Grafana LGTM stack (metrics + logs + traces) on a Raspberry Pi 5 homelab k3s cluster. Shared here because the problems solved are generic
 SRE problems that show up at any scale: monitoring a device with no native
 exporter, surviving an upstream API breaking change, getting cron-based
 jobs to actually run with the right permissions, and alerting on host,
@@ -96,11 +94,18 @@ flowchart LR
     Prom -->|alerts| AM[Alertmanager]
     AM -->|webhook| Bridge[alertmanager-telegram-bridge]
     Prom --> Graf[Grafana]
+    Alloy[Grafana Alloy DaemonSet] -->|container logs| Loki[Loki]
+    Alloy -->|OTLP traces| Tempo[Tempo]
+    Loki --> Graf
+    Tempo --> Graf
+    Apps[Instrumented Apps] -->|OTLP| Alloy
 ```
 
 ## Alerting
 
 Five layers, each covering what the layer below it can't see:
+
+**Chaos Engineering:** A `chaos-monkey` CronJob (runs hourly) randomly kills a pod outside system namespaces, causing real SLO Error Budget consumption and alert firing — validating the full alerting pipeline end-to-end continuously rather than only during manual tests.
 
 - **Host** (`alerting/alerts.yml`, group `homelab`) — `NodeDown`, `HighCPU` (>85%, 5m), `HighMemory` (>85%, 5m), `DiskSpaceLow` (>80%, 5m), `HighTemperature` (>70°C, 2m), `PiholeDown`, `PrometheusDown`
 - **Container** (`alerting/alerts.yml` group `containers`, plus the production `alerting/cadvisor-alerts.yml`) — per-container CPU/memory/throttling/OOM/network/filesystem via [cAdvisor](https://github.com/google/cadvisor). cAdvisor sees cgroups — actual resource consumption — but has no concept of a Kubernetes Pod, Deployment, or CronJob.
@@ -119,6 +124,18 @@ Container names in the example rules in `alerts.yml` are placeholders — swap t
 `alerting/argocd-alerts.yml` is 5 rules built on `argocd_app_info`'s `sync_status`/`health_status` labels, plus a watchdog on the argocd-metrics scrape target itself. Since Prometheus runs on the host rather than in-cluster, `argocd-metrics` (ClusterIP by default) needs to be exposed via NodePort the same way as kube-state-metrics.
 
 To test the full alert lifecycle end-to-end: stop a monitored container, wait for `ContainerDown` to go from pending to firing (~70s with the rules above), confirm the Telegram alert arrives, restart the container, and confirm the resolved notification arrives after Alertmanager's `resolve_timeout`.
+
+## Distributed Tracing
+
+Python apps are instrumented with OpenTelemetry SDK, shipping traces via OTLP to Grafana Alloy → Tempo. Example: `sre_analytics.py` (Cloudflare KV → Telegram reporter) emits three spans per run:
+
+| Span | What it measures |
+|------|-----------------|
+| `analytics.run` | Total end-to-end duration |
+| `cloudflare.query` | Cloudflare GraphQL API call (includes 2× `cloudflare.gql_request` children) |
+| `telegram.send` | Telegram Bot API delivery |
+
+Traces are queryable in Grafana → Explore → Tempo with TraceQL. Typical run: ~870ms total, of which ~610ms is Telegram delivery.
 
 ## Dashboards
 
