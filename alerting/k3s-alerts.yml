@@ -2,7 +2,7 @@ groups:
   - name: k3s-kubernetes-alerts
     rules:
       - alert: KubePodCrashLooping
-        expr: increase(kube_pod_container_status_restarts_total{namespace="homelab"}[15m]) > 3
+        expr: increase(kube_pod_container_status_restarts_total{namespace=~"apps|monitoring"}[15m]) > 3
         for: 5m
         labels:
           severity: warning
@@ -13,7 +13,7 @@ groups:
       - alert: KubePodNotReady
         expr: |
           sum by (namespace, pod) (
-            max by (namespace, pod) (kube_pod_status_phase{namespace="homelab", phase=~"Pending|Unknown|Failed"}) == 1
+            max by (namespace, pod) (kube_pod_status_phase{namespace=~"apps|monitoring", phase=~"Pending|Unknown|Failed"}) == 1
           )
         for: 10m
         labels:
@@ -24,8 +24,8 @@ groups:
 
       - alert: KubeDeploymentReplicasMismatch
         expr: |
-          kube_deployment_spec_replicas{namespace="homelab"}
-          != kube_deployment_status_replicas_available{namespace="homelab"}
+          kube_deployment_spec_replicas{namespace=~"apps|monitoring"}
+          != kube_deployment_status_replicas_available{namespace=~"apps|monitoring"}
         for: 10m
         labels:
           severity: warning
@@ -34,7 +34,7 @@ groups:
           description: "Deployment has {{ $labels.deployment }} desired replicas not matching available replicas for over 10 minutes."
 
       - alert: KubeJobFailed
-        expr: kube_job_status_failed{namespace="homelab"} > 0
+        expr: kube_job_status_failed{namespace=~"apps|monitoring"} > 0
         for: 0m
         labels:
           severity: warning
@@ -44,7 +44,7 @@ groups:
 
       - alert: KubeCronJobMissedSchedule
         expr: |
-          (time() - kube_cronjob_status_last_schedule_time{namespace="homelab"}) > 3 * 3600
+          (time() - kube_cronjob_status_last_schedule_time{namespace=~"apps|monitoring"}) > 25 * 3600
         for: 0m
         labels:
           severity: warning
@@ -54,8 +54,8 @@ groups:
 
       - alert: KubePersistentVolumeClaimNearFull
         expr: |
-          (kubelet_volume_stats_used_bytes{namespace="homelab"}
-          / kubelet_volume_stats_capacity_bytes{namespace="homelab"}) * 100 > 85
+          (kubelet_volume_stats_used_bytes{namespace=~"apps|monitoring"}
+          / kubelet_volume_stats_capacity_bytes{namespace=~"apps|monitoring"}) * 100 > 85
         for: 15m
         labels:
           severity: warning
@@ -65,8 +65,8 @@ groups:
 
       - alert: KubeStatefulSetReplicasMismatch
         expr: |
-          kube_statefulset_status_replicas_ready{namespace="homelab"}
-          != kube_statefulset_status_replicas{namespace="homelab"}
+          kube_statefulset_status_replicas_ready{namespace=~"apps|monitoring"}
+          != kube_statefulset_status_replicas{namespace=~"apps|monitoring"}
         for: 10m
         labels:
           severity: warning
