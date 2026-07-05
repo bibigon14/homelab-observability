@@ -8,23 +8,23 @@ groups:
         expr: |
           (
             sum by (owner_name) (
-              kube_job_status_succeeded{namespace="homelab"}
+              kube_job_status_succeeded{namespace="apps"}
               * on(job_name) group_left(owner_name)
-              kube_job_owner{namespace="homelab", owner_kind="CronJob"}
+              kube_job_owner{namespace="apps", owner_kind="CronJob"}
             )
           )
           /
           (
             sum by (owner_name) (
-              (kube_job_status_succeeded{namespace="homelab"} + kube_job_status_failed{namespace="homelab"})
+              ((kube_job_status_succeeded{namespace="apps"} + on(job_name) (kube_job_status_failed{namespace="apps"} or kube_job_status_succeeded{namespace="apps"} * 0)))
               * on(job_name) group_left(owner_name)
-              kube_job_owner{namespace="homelab", owner_kind="CronJob"}
+              kube_job_owner{namespace="apps", owner_kind="CronJob"}
             )
           )
 
       # Service availability (per-job, 5-min window)
       - record: slo:service:availability_5m
-        expr: avg_over_time(up[5m])
+        expr: avg_over_time(up{job!="thanos-compact"}[5m])
 
       # Blackbox probe success rate (per-target, 5-min window)
       - record: slo:probe:success_rate_5m
@@ -50,16 +50,16 @@ groups:
       - record: slo:service:error_budget_remaining_7d
         expr: |
           1 - (
-            (1 - avg_over_time(up[7d]))
+            (1 - avg_over_time(up{job!="thanos-compact"}[7d]))
             / (1 - 0.999)
           )
 
-      # Blackbox probe error budget (7d window, 99.9% target)
+      # Blackbox probe error budget (7d window, 99.5% target)
       - record: slo:probe:error_budget_remaining_7d
         expr: |
           1 - (
             (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[7d]))
-            / (1 - 0.999)
+            / (1 - 0.995)
           )
 
   # ─── Burn-Rate Alerts (Google SRE multi-window, all 99.9%) ────
@@ -74,25 +74,25 @@ groups:
         expr: |
           (
             1 - (
-              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="homelab"}[1h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="homelab", owner_kind="CronJob"})
+              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[1h])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
               /
-              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="homelab"}[1h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="homelab", owner_kind="CronJob"}
-                + increase(kube_job_status_failed{namespace="homelab"}[1h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="homelab", owner_kind="CronJob"})
+              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[1h])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"}
+                + increase(kube_job_status_failed{namespace="apps"}[1h])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
             )
           ) / (1 - 0.999) > 14.4
           and
           (
             1 - (
-              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="homelab"}[5m])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="homelab", owner_kind="CronJob"})
+              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[5m])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
               /
-              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="homelab"}[5m])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="homelab", owner_kind="CronJob"}
-                + increase(kube_job_status_failed{namespace="homelab"}[5m])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="homelab", owner_kind="CronJob"})
+              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[5m])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"}
+                + increase(kube_job_status_failed{namespace="apps"}[5m])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
             )
           ) / (1 - 0.999) > 14.4
         for: 2m
@@ -108,13 +108,13 @@ groups:
         expr: |
           (
             1 - (
-              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="homelab"}[6h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="homelab", owner_kind="CronJob"})
+              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[6h])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
               /
-              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="homelab"}[6h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="homelab", owner_kind="CronJob"}
-                + increase(kube_job_status_failed{namespace="homelab"}[6h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="homelab", owner_kind="CronJob"})
+              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[6h])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"}
+                + increase(kube_job_status_failed{namespace="apps"}[6h])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
             )
           ) / (1 - 0.999) > 6
         for: 5m
@@ -129,9 +129,9 @@ groups:
       # ── Service availability burn-rate (99.9%, 7d) ──
       - alert: SLOServiceBurnRateCritical
         expr: |
-          (1 - avg_over_time(up[1h])) / (1 - 0.999) > 14.4
+          (1 - avg_over_time(up{job!="thanos-compact"}[1h])) / (1 - 0.999) > 14.4
           and
-          (1 - avg_over_time(up[5m])) / (1 - 0.999) > 14.4
+          (1 - avg_over_time(up{job!="thanos-compact"}[5m])) / (1 - 0.999) > 14.4
         for: 2m
         labels:
           severity: critical
@@ -143,7 +143,7 @@ groups:
 
       - alert: SLOServiceBurnRateWarning
         expr: |
-          (1 - avg_over_time(up[6h])) / (1 - 0.999) > 6
+          (1 - avg_over_time(up{job!="thanos-compact"}[6h])) / (1 - 0.999) > 6
         for: 5m
         labels:
           severity: warning
@@ -153,29 +153,51 @@ groups:
           summary: "Service {{ $labels.job }} burning availability budget 6x faster than normal"
           description: "At this rate, the 7-day 99.9% availability SLO budget will be exhausted in under 6 hours."
 
-      # ── Blackbox probe burn-rate (99.9%, 7d) ──
+      # ── Blackbox probe burn-rate (99.5%, 7d) ──
       - alert: SLOProbeBurnRateCritical
         expr: |
-          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[1h])) / (1 - 0.999) > 14.4
+          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[1h])) / (1 - 0.995) > 14.4
           and
-          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[5m])) / (1 - 0.999) > 14.4
-        for: 2m
+          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[5m])) / (1 - 0.995) > 14.4
+        for: 5m
         labels:
           severity: critical
           slo: probe_availability
-          slo_target: "99.9"
+          slo_target: "99.5"
         annotations:
           summary: "Probe {{ $labels.instance }} burning availability budget 14x faster than normal"
-          description: "At this rate, the 7-day 99.9% probe SLO budget will be exhausted in under 1 hour."
+          description: "At this rate, the 7-day 99.5% probe SLO budget will be exhausted in under 1 hour."
 
       - alert: SLOProbeBurnRateWarning
         expr: |
-          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[6h])) / (1 - 0.999) > 6
-        for: 5m
+          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[6h])) / (1 - 0.995) > 6
+          and
+          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[30m])) / (1 - 0.995) > 6
+        for: 15m
         labels:
           severity: warning
           slo: probe_availability
-          slo_target: "99.9"
+          slo_target: "99.5"
         annotations:
           summary: "Probe {{ $labels.instance }} burning availability budget 6x faster than normal"
-          description: "At this rate, the 7-day 99.9% probe SLO budget will be exhausted in under 6 hours."
+          description: "At this rate, the 7-day 99.5% probe SLO budget will be exhausted in under 6 hours."
+
+      - alert: ThanosCompactFailed
+        expr: node_systemd_unit_state{name="thanos-compact.service", state="failed"} == 1
+        for: 2m
+        labels:
+          severity: critical
+          location: home
+        annotations:
+          summary: "thanos-compact service is in failed state"
+          description: "Thanos Compactor has hit StartLimitBurst and stopped restarting. Manual intervention required."
+
+      - alert: NodeDiskHighUtilization
+        expr: rate(node_disk_io_time_seconds_total{device="nvme0n1"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          location: home
+        annotations:
+          summary: "NVMe disk utilization > 80% for 5 minutes"
+          description: "nvme0n1 utilization is {{ $value | humanize }}%. Possible IO storm."
