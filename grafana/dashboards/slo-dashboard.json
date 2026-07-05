@@ -704,7 +704,7 @@
       {
         "id": 20,
         "type": "row",
-        "title": "Probe SLOs (99.9% success, 7d window)",
+        "title": "Probe SLOs (99.5% success, 7d window)",
         "gridPos": {
           "h": 1,
           "w": 24,
@@ -749,7 +749,7 @@
                 },
                 {
                   "color": "green",
-                  "value": 0.999
+                  "value": 0.995
                 }
               ]
             },
