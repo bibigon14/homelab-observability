@@ -67,7 +67,7 @@ groups:
         expr: |
           1 - (
             (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[7d]))
-            / (1 - 0.995)
+            / (1 - 0.999)
           )
 
   # ─── Burn-Rate Alerts (Google SRE multi-window, all 99.9%) ────
@@ -161,31 +161,31 @@ groups:
           summary: "Service {{ $labels.job }} burning availability budget 6x faster than normal"
           description: "At this rate, the 7-day 99.9% availability SLO budget will be exhausted in under 6 hours."
 
-      # ── Blackbox probe burn-rate (99.5%, 7d) ──
+      # ── Blackbox probe burn-rate (99.9%, 7d) ──
       - alert: SLOProbeBurnRateCritical
         expr: |
-          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[1h])) / (1 - 0.995) > 14.4
+          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[1h])) / (1 - 0.999) > 14.4
           and
-          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[5m])) / (1 - 0.995) > 14.4
+          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[5m])) / (1 - 0.999) > 14.4
         for: 5m
         labels:
           severity: critical
           slo: probe_availability
-          slo_target: "99.5"
+          slo_target: "99.9"
         annotations:
           summary: "Probe {{ $labels.instance }} burning availability budget 14x faster than normal"
           description: "At this rate, the 7-day 99.5% probe SLO budget will be exhausted in under 1 hour."
 
       - alert: SLOProbeBurnRateWarning
         expr: |
-          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[6h])) / (1 - 0.995) > 6
+          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[6h])) / (1 - 0.999) > 6
           and
-          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[30m])) / (1 - 0.995) > 6
+          (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[30m])) / (1 - 0.999) > 6
         for: 15m
         labels:
           severity: warning
           slo: probe_availability
-          slo_target: "99.5"
+          slo_target: "99.9"
         annotations:
           summary: "Probe {{ $labels.instance }} burning availability budget 6x faster than normal"
           description: "At this rate, the 7-day 99.5% probe SLO budget will be exhausted in under 6 hours."
