@@ -32,7 +32,7 @@ groups:
 
       # Service availability (per-job, 5-min window)
       - record: slo:service:availability_5m
-        expr: avg_over_time(up{job!="thanos-compact"}[5m])
+        expr: avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[5m])
 
       # Blackbox probe success rate (per-target, 5-min window)
       - record: slo:probe:success_rate_5m
@@ -58,7 +58,7 @@ groups:
       - record: slo:service:error_budget_remaining_7d
         expr: |
           1 - (
-            (1 - avg_over_time(up{job!="thanos-compact"}[7d]))
+            (1 - avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[7d]))
             / (1 - 0.999)
           )
 
@@ -137,9 +137,9 @@ groups:
       # ── Service availability burn-rate (99.9%, 7d) ──
       - alert: SLOServiceBurnRateCritical
         expr: |
-          (1 - avg_over_time(up{job!="thanos-compact"}[1h])) / (1 - 0.999) > 14.4
+          (1 - avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[1h])) / (1 - 0.999) > 14.4
           and
-          (1 - avg_over_time(up{job!="thanos-compact"}[5m])) / (1 - 0.999) > 14.4
+          (1 - avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[5m])) / (1 - 0.999) > 14.4
         for: 2m
         labels:
           severity: critical
@@ -151,7 +151,7 @@ groups:
 
       - alert: SLOServiceBurnRateWarning
         expr: |
-          (1 - avg_over_time(up{job!="thanos-compact"}[6h])) / (1 - 0.999) > 6
+          (1 - avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[6h])) / (1 - 0.999) > 6
         for: 5m
         labels:
           severity: warning
