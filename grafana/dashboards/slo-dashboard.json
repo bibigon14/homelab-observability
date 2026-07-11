@@ -3,879 +3,185 @@
     "id": null,
     "uid": "slo-error-budget",
     "title": "SLO Error Budgets",
-    "tags": [
-      "slo",
-      "reliability",
-      "homelab"
-    ],
+    "tags": ["slo", "reliability", "homelab"],
     "timezone": "browser",
     "schemaVersion": 39,
-    "version": 1,
+    "version": 2,
     "refresh": "1m",
-    "time": {
-      "from": "now-7d",
-      "to": "now"
-    },
+    "time": { "from": "now-7d", "to": "now" },
     "templating": {
       "list": [
-        {
-          "name": "datasource",
-          "type": "datasource",
-          "query": "prometheus",
-          "current": {}
-        }
+        { "name": "datasource", "type": "datasource", "query": "prometheus", "current": {} }
       ]
     },
     "panels": [
-      {
-        "id": 1,
-        "type": "row",
-        "title": "CronJob SLOs (99.9% success rate, 7d window)",
-        "gridPos": {
-          "h": 1,
-          "w": 24,
-          "x": 0,
-          "y": 0
-        },
-        "collapsed": false
-      },
-      {
-        "id": 2,
-        "type": "stat",
-        "title": "iptv-auto-switch",
-        "gridPos": {
-          "h": 6,
-          "w": 6,
-          "x": 0,
-          "y": 1
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "slo:cronjob:success_ratio_7d{owner_name=\"iptv-auto-switch\"}",
-            "refId": "A",
-            "instant": true,
-            "range": false
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 0.999
-                }
-              ]
-            },
-            "decimals": 4,
-            "color": {
-              "mode": "thresholds"
-            }
-          }
-        },
-        "options": {
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ]
-          },
-          "colorMode": "background",
-          "graphMode": "none",
-          "textMode": "auto"
-        }
-      },
-      {
-        "id": 3,
-        "type": "stat",
-        "title": "iptv-notify",
-        "gridPos": {
-          "h": 6,
-          "w": 6,
-          "x": 6,
-          "y": 1
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "slo:cronjob:success_ratio_7d{owner_name=\"iptv-notify\"}",
-            "refId": "A",
-            "instant": true,
-            "range": false
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 0.999
-                }
-              ]
-            },
-            "decimals": 4,
-            "color": {
-              "mode": "thresholds"
-            }
-          }
-        },
-        "options": {
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ]
-          },
-          "colorMode": "background",
-          "graphMode": "none",
-          "textMode": "auto"
-        }
-      },
-      {
-        "id": 4,
-        "type": "stat",
-        "title": "iptv-influx-writer",
-        "gridPos": {
-          "h": 6,
-          "w": 6,
-          "x": 12,
-          "y": 1
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "slo:cronjob:success_ratio_7d{owner_name=\"iptv-influx-writer\"}",
-            "refId": "A",
-            "instant": true,
-            "range": false
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 0.999
-                }
-              ]
-            },
-            "decimals": 4,
-            "color": {
-              "mode": "thresholds"
-            }
-          }
-        },
-        "options": {
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ]
-          },
-          "colorMode": "background",
-          "graphMode": "none",
-          "textMode": "auto"
-        }
-      },
-      {
-        "id": 5,
-        "type": "stat",
-        "title": "sre-analytics",
-        "gridPos": {
-          "h": 6,
-          "w": 6,
-          "x": 18,
-          "y": 1
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "slo:cronjob:success_ratio_7d{owner_name=\"sre-analytics\"}",
-            "refId": "A",
-            "instant": true,
-            "range": false
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 0.999
-                }
-              ]
-            },
-            "decimals": 4,
-            "color": {
-              "mode": "thresholds"
-            }
-          }
-        },
-        "options": {
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ]
-          },
-          "colorMode": "background",
-          "graphMode": "none",
-          "textMode": "auto"
-        }
-      },
-      {
-        "id": 6,
-        "type": "timeseries",
-        "title": "CronJob Error Budget Remaining (7d)",
-        "gridPos": {
-          "h": 8,
-          "w": 24,
-          "x": 0,
-          "y": 7
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "slo:cronjob:error_budget_remaining_7d",
-            "legendFormat": "{{ owner_name }}",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": -1,
-            "max": 1,
-            "custom": {
-              "fillOpacity": 5,
-              "lineWidth": 2
-            },
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "orange",
-                  "value": 0
-                },
-                {
-                  "color": "green",
-                  "value": 0.5
-                }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "id": 10,
-        "type": "row",
-        "title": "Service Availability SLOs (99.9%, 7d window)",
-        "gridPos": {
-          "h": 1,
-          "w": 24,
-          "x": 0,
-          "y": 15
-        },
-        "collapsed": false
-      },
-      {
-        "id": 11,
-        "type": "stat",
-        "title": "Prometheus",
-        "gridPos": {
-          "h": 5,
-          "w": 4,
-          "x": 0,
-          "y": 16
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "avg_over_time(up{job=\"prometheus\"}[7d])",
-            "refId": "A",
-            "instant": true,
-            "range": false
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 0.999
-                }
-              ]
-            },
-            "decimals": 4,
-            "color": {
-              "mode": "thresholds"
-            }
-          }
-        },
-        "options": {
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ]
-          },
-          "colorMode": "background",
-          "graphMode": "none",
-          "textMode": "auto"
-        }
-      },
-      {
-        "id": 12,
-        "type": "stat",
-        "title": "Pi-hole",
-        "gridPos": {
-          "h": 5,
-          "w": 4,
-          "x": 4,
-          "y": 16
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "avg_over_time(up{job=\"pihole\"}[7d])",
-            "refId": "A",
-            "instant": true,
-            "range": false
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 0.999
-                }
-              ]
-            },
-            "decimals": 4,
-            "color": {
-              "mode": "thresholds"
-            }
-          }
-        },
-        "options": {
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ]
-          },
-          "colorMode": "background",
-          "graphMode": "none",
-          "textMode": "auto"
-        }
-      },
-      {
-        "id": 13,
-        "type": "stat",
-        "title": "Node Exporter",
-        "gridPos": {
-          "h": 5,
-          "w": 4,
-          "x": 8,
-          "y": 16
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "avg_over_time(up{job=\"node\"}[7d])",
-            "refId": "A",
-            "instant": true,
-            "range": false
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 0.999
-                }
-              ]
-            },
-            "decimals": 4,
-            "color": {
-              "mode": "thresholds"
-            }
-          }
-        },
-        "options": {
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ]
-          },
-          "colorMode": "background",
-          "graphMode": "none",
-          "textMode": "auto"
-        }
-      },
-      {
-        "id": 14,
-        "type": "stat",
-        "title": "cAdvisor",
-        "gridPos": {
-          "h": 5,
-          "w": 4,
-          "x": 12,
-          "y": 16
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "avg_over_time(up{job=\"cadvisor\"}[7d])",
-            "refId": "A",
-            "instant": true,
-            "range": false
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 0.999
-                }
-              ]
-            },
-            "decimals": 4,
-            "color": {
-              "mode": "thresholds"
-            }
-          }
-        },
-        "options": {
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ]
-          },
-          "colorMode": "background",
-          "graphMode": "none",
-          "textMode": "auto"
-        }
-      },
-      {
-        "id": 15,
-        "type": "stat",
-        "title": "wc2026bot",
-        "gridPos": {
-          "h": 5,
-          "w": 4,
-          "x": 16,
-          "y": 16
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "avg_over_time(up{job=\"wc2026bot\"}[7d])",
-            "refId": "A",
-            "instant": true,
-            "range": false
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 0.999
-                }
-              ]
-            },
-            "decimals": 4,
-            "color": {
-              "mode": "thresholds"
-            }
-          }
-        },
-        "options": {
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ]
-          },
-          "colorMode": "background",
-          "graphMode": "none",
-          "textMode": "auto"
-        }
-      },
-      {
-        "id": 16,
-        "type": "stat",
-        "title": "bridge",
-        "gridPos": {
-          "h": 5,
-          "w": 4,
-          "x": 20,
-          "y": 16
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "avg_over_time(up{job=\"bridge\"}[7d])",
-            "refId": "A",
-            "instant": true,
-            "range": false
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 0.999
-                }
-              ]
-            },
-            "decimals": 4,
-            "color": {
-              "mode": "thresholds"
-            }
-          }
-        },
-        "options": {
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ]
-          },
-          "colorMode": "background",
-          "graphMode": "none",
-          "textMode": "auto"
-        }
-      },
-      {
-        "id": 17,
-        "type": "timeseries",
-        "title": "Service Error Budget Remaining (7d)",
-        "gridPos": {
-          "h": 8,
-          "w": 24,
-          "x": 0,
-          "y": 21
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "slo:service:error_budget_remaining_7d",
-            "legendFormat": "{{ job }}",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": -1,
-            "max": 1,
-            "custom": {
-              "fillOpacity": 5,
-              "lineWidth": 2
-            },
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "orange",
-                  "value": 0
-                },
-                {
-                  "color": "green",
-                  "value": 0.5
-                }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "id": 20,
-        "type": "row",
-        "title": "Probe SLOs (99.5% success, 7d window)",
-        "gridPos": {
-          "h": 1,
-          "w": 24,
-          "x": 0,
-          "y": 29
-        },
-        "collapsed": false
-      },
-      {
-        "id": 21,
-        "type": "bargauge",
-        "title": "Probe Success Rate (7d)",
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 30
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "avg_over_time(probe_success{job=\"blackbox-homelab-https\"}[7d])",
-            "legendFormat": "{{ instance }}",
-            "refId": "A",
-            "instant": true
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 0.995
-                }
-              ]
-            },
-            "decimals": 4,
-            "color": {
-              "mode": "thresholds"
-            }
-          }
-        },
-        "options": {
-          "orientation": "horizontal",
-          "displayMode": "gradient"
-        }
-      },
-      {
-        "id": 22,
-        "type": "timeseries",
-        "title": "Probe Error Budget Remaining (7d)",
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 12,
-          "y": 30
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "slo:probe:error_budget_remaining_7d",
-            "legendFormat": "{{ instance }}",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": -1,
-            "max": 1,
-            "custom": {
-              "fillOpacity": 5,
-              "lineWidth": 2
-            },
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "orange",
-                  "value": 0
-                },
-                {
-                  "color": "green",
-                  "value": 0.5
-                }
-              ]
-            }
-          }
-        }
-      },
-      {
-        "id": 30,
-        "type": "row",
-        "title": "Probe Latency",
-        "gridPos": {
-          "h": 1,
-          "w": 24,
-          "x": 0,
-          "y": 38
-        },
-        "collapsed": false
-      },
-      {
-        "id": 31,
-        "type": "timeseries",
-        "title": "Probe Response Time (avg 5m)",
-        "gridPos": {
-          "h": 8,
-          "w": 24,
-          "x": 0,
-          "y": 39
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "targets": [
-          {
-            "expr": "slo:probe:latency_avg_5m",
-            "legendFormat": "{{ instance }}",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "unit": "s",
-            "custom": {
-              "fillOpacity": 10
-            }
-          }
-        }
-      }
+
+      { "id": 1, "type": "row", "title": "CronJob SLOs (99.9% success rate, 7d window)",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "collapsed": false },
+
+      { "id": 2, "type": "stat", "title": "iptv-auto-switch",
+        "gridPos": { "h": 6, "w": 6, "x": 0, "y": 1 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:cronjob:success_ratio_7d{owner_name=\"iptv-auto-switch\"}", "refId": "A", "instant": true, "range": false }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "auto" } },
+
+      { "id": 3, "type": "stat", "title": "iptv-notify",
+        "gridPos": { "h": 6, "w": 6, "x": 6, "y": 1 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:cronjob:success_ratio_7d{owner_name=\"iptv-notify\"}", "refId": "A", "instant": true, "range": false }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "auto" } },
+
+      { "id": 4, "type": "stat", "title": "iptv-influx-writer",
+        "gridPos": { "h": 6, "w": 6, "x": 12, "y": 1 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:cronjob:success_ratio_7d{owner_name=\"iptv-influx-writer\"}", "refId": "A", "instant": true, "range": false }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "auto" } },
+
+      { "id": 5, "type": "stat", "title": "sre-analytics",
+        "gridPos": { "h": 6, "w": 6, "x": 18, "y": 1 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:cronjob:success_ratio_7d{owner_name=\"sre-analytics\"}", "refId": "A", "instant": true, "range": false }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "auto" } },
+
+      { "id": 6, "type": "timeseries", "title": "CronJob Error Budget Remaining (7d)",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 7 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:cronjob:error_budget_remaining_7d", "legendFormat": "{{ owner_name }}", "refId": "A" }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": -1, "max": 1,
+          "custom": { "fillOpacity": 5, "lineWidth": 2 },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0 }, { "color": "green", "value": 0.5 }] } } } },
+
+      { "id": 10, "type": "row", "title": "Service Availability SLOs (99.9%, 7d window)",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 }, "collapsed": false },
+
+      { "id": 11, "type": "stat", "title": "Prometheus",
+        "gridPos": { "h": 5, "w": 4, "x": 0, "y": 16 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "avg_over_time(up{job=\"prometheus\"}[7d])", "refId": "A", "instant": true, "range": false }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "auto" } },
+
+      { "id": 12, "type": "stat", "title": "Pi-hole",
+        "gridPos": { "h": 5, "w": 4, "x": 4, "y": 16 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "avg_over_time(up{job=\"pihole\"}[7d])", "refId": "A", "instant": true, "range": false }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "auto" } },
+
+      { "id": 13, "type": "stat", "title": "Node Exporter",
+        "gridPos": { "h": 5, "w": 4, "x": 8, "y": 16 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "avg_over_time(up{job=\"node\"}[7d])", "refId": "A", "instant": true, "range": false }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "auto" } },
+
+      { "id": 14, "type": "stat", "title": "cAdvisor",
+        "gridPos": { "h": 5, "w": 4, "x": 12, "y": 16 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "avg_over_time(up{job=\"cadvisor\"}[7d])", "refId": "A", "instant": true, "range": false }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "auto" } },
+
+      { "id": 15, "type": "stat", "title": "wc2026bot",
+        "gridPos": { "h": 5, "w": 4, "x": 16, "y": 16 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "avg_over_time(up{job=\"wc2026bot\"}[7d])", "refId": "A", "instant": true, "range": false }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "auto" } },
+
+      { "id": 16, "type": "stat", "title": "bridge",
+        "gridPos": { "h": 5, "w": 4, "x": 20, "y": 16 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "avg_over_time(up{job=\"bridge\"}[7d])", "refId": "A", "instant": true, "range": false }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "textMode": "auto" } },
+
+      { "id": 17, "type": "timeseries", "title": "Service Error Budget Remaining (7d)",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 21 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:service:error_budget_remaining_7d", "legendFormat": "{{ job }}", "refId": "A" }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": -1, "max": 1,
+          "custom": { "fillOpacity": 5, "lineWidth": 2 },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0 }, { "color": "green", "value": 0.5 }] } } } },
+
+      { "id": 20, "type": "row", "title": "Probe SLOs — Availability (99.9% success, 7d window)",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 29 }, "collapsed": false },
+
+      { "id": 21, "type": "bargauge", "title": "Probe Success Rate (7d)",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "avg_over_time(probe_success{job=\"blackbox-homelab-https\"}[7d])", "legendFormat": "{{ instance }}", "refId": "A", "instant": true }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "orientation": "horizontal", "displayMode": "gradient" } },
+
+      { "id": 22, "type": "timeseries", "title": "Probe Availability Error Budget Remaining (7d)",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:probe:error_budget_remaining_7d", "legendFormat": "{{ instance }}", "refId": "A" }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": -1, "max": 1,
+          "custom": { "fillOpacity": 5, "lineWidth": 2 },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0 }, { "color": "green", "value": 0.5 }] } } } },
+
+      { "id": 30, "type": "row", "title": "Probe SLOs — Latency (99.9% < 3s, 7d window)",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 }, "collapsed": false },
+
+      { "id": 32, "type": "bargauge", "title": "Probe Latency Compliance — % < 3s (7d)",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 39 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:probe:latency_compliance_7d", "legendFormat": "{{ instance }}", "refId": "A", "instant": true }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "orientation": "horizontal", "displayMode": "gradient" } },
+
+      { "id": 33, "type": "timeseries", "title": "Probe Latency Error Budget Remaining (7d)",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 39 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:probe:latency_error_budget_remaining_7d", "legendFormat": "{{ instance }}", "refId": "A" }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": -1, "max": 1,
+          "custom": { "fillOpacity": 5, "lineWidth": 2 },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0 }, { "color": "green", "value": 0.5 }] } } } },
+
+      { "id": 31, "type": "timeseries", "title": "Probe Response Time (avg 5m)",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 47 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:probe:latency_avg_5m", "legendFormat": "{{ instance }}", "refId": "A" }],
+        "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 10 },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 2 }, { "color": "red", "value": 3 }] } } } },
+
+      { "id": 40, "type": "row", "title": "Probe SLOs — Overall (99.9%, good = success + < 3s, 7d window)",
+        "gridPos": { "h": 1, "w": 24, "x": 0, "y": 55 }, "collapsed": false },
+
+      { "id": 41, "type": "bargauge", "title": "Probe Overall Compliance (7d)",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 56 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:probe:overall_compliance_7d", "legendFormat": "{{ instance }}", "refId": "A", "instant": true }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "decimals": 4, "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0.999 }] } } },
+        "options": { "orientation": "horizontal", "displayMode": "gradient" } },
+
+      { "id": 42, "type": "timeseries", "title": "Probe Overall Error Budget Remaining (7d)",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 56 },
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "targets": [{ "expr": "slo:probe:overall_error_budget_remaining_7d", "legendFormat": "{{ instance }}", "refId": "A" }],
+        "fieldConfig": { "defaults": { "unit": "percentunit", "min": -1, "max": 1,
+          "custom": { "fillOpacity": 5, "lineWidth": 2 },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0 }, { "color": "green", "value": 0.5 }] } } } }
+
     ]
   },
   "folderUid": "",
