@@ -3,12 +3,14 @@ groups:
   - name: slo:recording
     interval: 1m
     rules:
-      # CronJob success ratio (per-cronjob)
+      # CronJob success ratio — true 7d rolling window via increase()
+      # increase() on kube_job_status_succeeded counts actual completions
+      # in the last 7 days, not a snapshot of currently-existing Job objects.
       - record: slo:cronjob:success_ratio_7d
         expr: |
           (
             sum by (owner_name) (
-              kube_job_status_succeeded{namespace="apps"}
+              increase(kube_job_status_succeeded{namespace="apps"}[7d])
               * on(job_name) group_left(owner_name)
               kube_job_owner{namespace="apps", owner_kind="CronJob"}
             )
@@ -16,7 +18,13 @@ groups:
           /
           (
             sum by (owner_name) (
-              ((kube_job_status_succeeded{namespace="apps"} + on(job_name) (kube_job_status_failed{namespace="apps"} or kube_job_status_succeeded{namespace="apps"} * 0)))
+              increase(kube_job_status_succeeded{namespace="apps"}[7d])
+              * on(job_name) group_left(owner_name)
+              kube_job_owner{namespace="apps", owner_kind="CronJob"}
+            )
+            +
+            sum by (owner_name) (
+              increase(kube_job_status_failed{namespace="apps"}[7d])
               * on(job_name) group_left(owner_name)
               kube_job_owner{namespace="apps", owner_kind="CronJob"}
             )

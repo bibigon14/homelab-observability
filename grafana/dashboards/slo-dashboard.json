@@ -56,7 +56,9 @@
         "targets": [
           {
             "expr": "slo:cronjob:success_ratio_7d{owner_name=\"iptv-auto-switch\"}",
-            "refId": "A"
+            "refId": "A",
+            "instant": true,
+            "range": false
           }
         ],
         "fieldConfig": {
@@ -111,7 +113,9 @@
         "targets": [
           {
             "expr": "slo:cronjob:success_ratio_7d{owner_name=\"iptv-notify\"}",
-            "refId": "A"
+            "refId": "A",
+            "instant": true,
+            "range": false
           }
         ],
         "fieldConfig": {
@@ -166,7 +170,9 @@
         "targets": [
           {
             "expr": "slo:cronjob:success_ratio_7d{owner_name=\"iptv-influx-writer\"}",
-            "refId": "A"
+            "refId": "A",
+            "instant": true,
+            "range": false
           }
         ],
         "fieldConfig": {
@@ -221,7 +227,9 @@
         "targets": [
           {
             "expr": "slo:cronjob:success_ratio_7d{owner_name=\"sre-analytics\"}",
-            "refId": "A"
+            "refId": "A",
+            "instant": true,
+            "range": false
           }
         ],
         "fieldConfig": {
@@ -338,7 +346,9 @@
         "targets": [
           {
             "expr": "avg_over_time(up{job=\"prometheus\"}[7d])",
-            "refId": "A"
+            "refId": "A",
+            "instant": true,
+            "range": false
           }
         ],
         "fieldConfig": {
@@ -393,7 +403,9 @@
         "targets": [
           {
             "expr": "avg_over_time(up{job=\"pihole\"}[7d])",
-            "refId": "A"
+            "refId": "A",
+            "instant": true,
+            "range": false
           }
         ],
         "fieldConfig": {
@@ -448,7 +460,9 @@
         "targets": [
           {
             "expr": "avg_over_time(up{job=\"node\"}[7d])",
-            "refId": "A"
+            "refId": "A",
+            "instant": true,
+            "range": false
           }
         ],
         "fieldConfig": {
@@ -503,7 +517,9 @@
         "targets": [
           {
             "expr": "avg_over_time(up{job=\"cadvisor\"}[7d])",
-            "refId": "A"
+            "refId": "A",
+            "instant": true,
+            "range": false
           }
         ],
         "fieldConfig": {
@@ -558,7 +574,9 @@
         "targets": [
           {
             "expr": "avg_over_time(up{job=\"wc2026bot\"}[7d])",
-            "refId": "A"
+            "refId": "A",
+            "instant": true,
+            "range": false
           }
         ],
         "fieldConfig": {
@@ -613,7 +631,9 @@
         "targets": [
           {
             "expr": "avg_over_time(up{job=\"bridge\"}[7d])",
-            "refId": "A"
+            "refId": "A",
+            "instant": true,
+            "range": false
           }
         ],
         "fieldConfig": {

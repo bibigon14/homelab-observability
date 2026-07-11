@@ -1,0 +1,18 @@
+groups:
+  - name: pihole-ftl-alerts
+    rules:
+      # Fires when Pi-hole FTL logs SQLite transaction errors.
+      # Source: /var/lib/prometheus/node-exporter/pihole-ftl.prom
+      # populated by /usr/local/bin/pihole-ftl-metrics.sh (cron, every minute).
+      #
+      # > 3 errors in 5 minutes = the ARP deadlock pattern from the 2026-07-11 incident.
+      # At this count, DNS is either already degraded or about to be.
+      - alert: PiholeFTLSQLiteErrors
+        expr: pihole_ftl_sqlite_errors_5m > 3
+        for: 0m
+        labels:
+          severity: warning
+          location: home
+        annotations:
+          summary: "Pi-hole FTL SQLite transaction errors detected"
+          description: "{{ $value }} SQLite errors in the last 5 minutes. This is a precursor to DNS blackouts (see 2026-07-11 incident). Run: sudo grep SQLITE_ERROR /var/log/pihole/FTL.log | tail -20"

@@ -17,6 +17,8 @@ modules:
       valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
       preferred_ip_protocol: "ip4"
 
+  # DNS probe: checks that Pi-hole resolves .homelab.local names.
+  # Target in prometheus.yml must be the DNS server (127.0.0.1:53).
   dns_pihole_homelab:
     prober: dns
     timeout: 5s
