@@ -4,8 +4,6 @@ groups:
     interval: 1m
     rules:
       # CronJob success ratio — true 7d rolling window via increase()
-      # increase() on kube_job_status_succeeded counts actual completions
-      # in the last 7 days, not a snapshot of currently-existing Job objects.
       - record: slo:cronjob:success_ratio_7d
         expr: |
           (
@@ -30,17 +28,39 @@ groups:
             )
           )
 
-      # Service availability (per-job, 5-min window)
+      # Service availability (per-job, 5-min window) — excludes blackbox probe jobs
       - record: slo:service:availability_5m
         expr: avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[5m])
 
-      # Blackbox probe success rate (per-target, 5-min window)
+      # ── Probe SLIs ──────────────────────────────────────────────
+
+      # Availability: probe success rate (5-min window)
       - record: slo:probe:success_rate_5m
         expr: avg_over_time(probe_success{job="blackbox-homelab-https"}[5m])
 
-      # Blackbox probe latency (per-target, 5-min avg)
+      # Latency: probe response time (5-min avg)
       - record: slo:probe:latency_avg_5m
         expr: avg_over_time(probe_duration_seconds{job="blackbox-homelab-https"}[5m])
+
+      # Latency compliance: fraction of probes completing in < 3s (7d window)
+      # Target: 99.9% of samples must be below threshold
+      - record: slo:probe:latency_compliance_7d
+        expr: |
+          avg_over_time(
+            (probe_duration_seconds{job="blackbox-homelab-https"} < bool 3)[7d:1m]
+          )
+
+      # Overall compliance: good request = probe succeeded AND latency < 3s
+      # Overall = (1 - (failed + slow) / total)
+      # A probe is "bad" if: failed OR slow (>= 3s)
+      - record: slo:probe:overall_compliance_7d
+        expr: |
+          avg_over_time(
+            (
+              probe_success{job="blackbox-homelab-https"}
+              * (probe_duration_seconds{job="blackbox-homelab-https"} < bool 3)
+            )[7d:1m]
+          )
 
   # ─── Error Budget ──────────────────────────────────────────────
   - name: slo:error_budget
@@ -62,7 +82,7 @@ groups:
             / (1 - 0.999)
           )
 
-      # Blackbox probe error budget (7d window, 99.5% target)
+      # Probe availability error budget (7d window, 99.9% target)
       - record: slo:probe:error_budget_remaining_7d
         expr: |
           1 - (
@@ -70,11 +90,28 @@ groups:
             / (1 - 0.999)
           )
 
-  # ─── Burn-Rate Alerts (Google SRE multi-window, all 99.9%) ────
+      # Probe latency error budget (7d window, 99.9% target — 99.9% probes < 3s)
+      - record: slo:probe:latency_error_budget_remaining_7d
+        expr: |
+          1 - (
+            (1 - slo:probe:latency_compliance_7d)
+            / (1 - 0.999)
+          )
+
+      # Probe overall error budget (7d window, 99.9% target)
+      # Good = successful AND fast; bad = failed OR slow
+      - record: slo:probe:overall_error_budget_remaining_7d
+        expr: |
+          1 - (
+            (1 - slo:probe:overall_compliance_7d)
+            / (1 - 0.999)
+          )
+
+  # ─── Burn-Rate Alerts (Google SRE multi-window) ────────────────
   #
-  # For a 7-day SLO window at 99.9%:
-  #   Critical: 14.4x burn rate over 1h + 5m  (2% budget consumed in 1h)
-  #   Warning:  6x burn rate over 6h + 30m    (5% budget consumed in 6h)
+  # For a 7-day SLO window:
+  #   Critical: 14.4x burn rate over 1h + 5m  (2% budget in 1h)
+  #   Warning:  6x burn rate over 6h + 30m    (5% budget in 6h)
   - name: slo:burn_rate_alerts
     rules:
       # ── CronJob burn-rate (99.9%, 7d) ──
@@ -161,7 +198,7 @@ groups:
           summary: "Service {{ $labels.job }} burning availability budget 6x faster than normal"
           description: "At this rate, the 7-day 99.9% availability SLO budget will be exhausted in under 6 hours."
 
-      # ── Blackbox probe burn-rate (99.9%, 7d) ──
+      # ── Probe availability burn-rate (99.9%, 7d) ──
       - alert: SLOProbeBurnRateCritical
         expr: |
           (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[1h])) / (1 - 0.999) > 14.4
@@ -174,7 +211,7 @@ groups:
           slo_target: "99.9"
         annotations:
           summary: "Probe {{ $labels.instance }} burning availability budget 14x faster than normal"
-          description: "At this rate, the 7-day 99.5% probe SLO budget will be exhausted in under 1 hour."
+          description: "At this rate, the 7-day 99.9% probe SLO budget will be exhausted in under 1 hour."
 
       - alert: SLOProbeBurnRateWarning
         expr: |
@@ -188,8 +225,68 @@ groups:
           slo_target: "99.9"
         annotations:
           summary: "Probe {{ $labels.instance }} burning availability budget 6x faster than normal"
-          description: "At this rate, the 7-day 99.5% probe SLO budget will be exhausted in under 6 hours."
+          description: "At this rate, the 7-day 99.9% probe SLO budget will be exhausted in under 6 hours."
 
+      # ── Probe latency burn-rate (99.9% < 3s, 7d) ──
+      - alert: SLOProbeLatencyBurnRateCritical
+        expr: |
+          (1 - avg_over_time((probe_duration_seconds{job="blackbox-homelab-https"} < bool 3)[1h:1m])) / (1 - 0.999) > 14.4
+          and
+          (1 - avg_over_time((probe_duration_seconds{job="blackbox-homelab-https"} < bool 3)[5m:1m])) / (1 - 0.999) > 14.4
+        for: 2m
+        labels:
+          severity: critical
+          slo: probe_latency
+          slo_target: "99.9"
+        annotations:
+          summary: "Probe {{ $labels.instance }} latency burning budget 14x faster than normal"
+          description: "More than 0.1% of probes exceeded 3s in the last hour. 7-day latency SLO budget exhausted in under 1 hour."
+
+      - alert: SLOProbeLatencyBurnRateWarning
+        expr: |
+          (1 - avg_over_time((probe_duration_seconds{job="blackbox-homelab-https"} < bool 3)[6h:1m])) / (1 - 0.999) > 6
+          and
+          (1 - avg_over_time((probe_duration_seconds{job="blackbox-homelab-https"} < bool 3)[30m:1m])) / (1 - 0.999) > 6
+        for: 15m
+        labels:
+          severity: warning
+          slo: probe_latency
+          slo_target: "99.9"
+        annotations:
+          summary: "Probe {{ $labels.instance }} latency burning budget 6x faster than normal"
+          description: "More than 0.1% of probes exceeded 3s over the last 6 hours. 7-day latency SLO budget exhausted in under 6 hours."
+
+      # ── Probe overall burn-rate (99.9%, 7d) ──
+      # Bad = failed OR slow (>= 3s)
+      - alert: SLOProbeOverallBurnRateCritical
+        expr: |
+          (1 - avg_over_time((probe_success{job="blackbox-homelab-https"} * (probe_duration_seconds{job="blackbox-homelab-https"} < bool 3))[1h:1m])) / (1 - 0.999) > 14.4
+          and
+          (1 - avg_over_time((probe_success{job="blackbox-homelab-https"} * (probe_duration_seconds{job="blackbox-homelab-https"} < bool 3))[5m:1m])) / (1 - 0.999) > 14.4
+        for: 2m
+        labels:
+          severity: critical
+          slo: probe_overall
+          slo_target: "99.9"
+        annotations:
+          summary: "Probe {{ $labels.instance }} overall SLO burning 14x faster than normal"
+          description: "Too many probes are failing or slow (>= 3s). 7-day overall SLO budget exhausted in under 1 hour."
+
+      - alert: SLOProbeOverallBurnRateWarning
+        expr: |
+          (1 - avg_over_time((probe_success{job="blackbox-homelab-https"} * (probe_duration_seconds{job="blackbox-homelab-https"} < bool 3))[6h:1m])) / (1 - 0.999) > 6
+          and
+          (1 - avg_over_time((probe_success{job="blackbox-homelab-https"} * (probe_duration_seconds{job="blackbox-homelab-https"} < bool 3))[30m:1m])) / (1 - 0.999) > 6
+        for: 15m
+        labels:
+          severity: warning
+          slo: probe_overall
+          slo_target: "99.9"
+        annotations:
+          summary: "Probe {{ $labels.instance }} overall SLO burning 6x faster than normal"
+          description: "Too many probes are failing or slow (>= 3s). 7-day overall SLO budget exhausted in under 6 hours."
+
+      # ── Infrastructure alerts ──
       - alert: ThanosCompactFailed
         expr: node_systemd_unit_state{name="thanos-compact.service", state="failed"} == 1
         for: 2m
