@@ -134,7 +134,7 @@
           "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0 }, { "color": "green", "value": 0.5 }] } } },
         "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": false, "showThresholdMarkers": true } },
 
-      { "id": 20, "type": "row", "title": "Probe SLOs — Availability (99.9% success, 7d window)",
+      { "id": 20, "type": "row", "title": "Probe SLOs - Availability (99.9% success, 7d window)",
         "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 }, "collapsed": false },
 
       { "id": 21, "type": "bargauge", "title": "Probe Success Rate (7d)",
@@ -161,10 +161,10 @@
           "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0 }, { "color": "green", "value": 0.5 }] } } },
         "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": false, "showThresholdMarkers": true } },
 
-      { "id": 30, "type": "row", "title": "Probe SLOs — Latency (99.9% < 3s, 7d window)",
+      { "id": 30, "type": "row", "title": "Probe SLOs - Latency (99.9% < 3s, 7d window)",
         "gridPos": { "h": 1, "w": 24, "x": 0, "y": 56 }, "collapsed": false },
 
-      { "id": 32, "type": "bargauge", "title": "Probe Latency Compliance — % < 3s (7d)",
+      { "id": 32, "type": "bargauge", "title": "Probe Latency Compliance - % < 3s (7d)",
         "gridPos": { "h": 8, "w": 12, "x": 0, "y": 57 },
         "datasource": { "type": "prometheus", "uid": "${datasource}" },
         "targets": [{ "expr": "slo:probe:latency_compliance_7d", "legendFormat": "{{ instance }}", "refId": "A", "instant": true }],
@@ -188,7 +188,7 @@
           "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 0 }, { "color": "green", "value": 0.5 }] } } },
         "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": false, "showThresholdMarkers": true } },
 
-      { "id": 40, "type": "row", "title": "Probe SLOs — Overall (99.9%, good = success + < 3s, 7d window)",
+      { "id": 40, "type": "row", "title": "Probe SLOs - Overall (99.9%, good = success + < 3s, 7d window)",
         "gridPos": { "h": 1, "w": 24, "x": 0, "y": 71 }, "collapsed": false },
 
       { "id": 41, "type": "bargauge", "title": "Probe Overall Compliance (7d)",

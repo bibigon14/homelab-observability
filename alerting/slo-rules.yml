@@ -3,7 +3,7 @@ groups:
   - name: slo:recording
     interval: 1m
     rules:
-      # CronJob success ratio — true 7d rolling window via increase()
+      # CronJob success ratio - true 7d rolling window via increase()
       - record: slo:cronjob:success_ratio_7d
         expr: |
           (
@@ -28,7 +28,7 @@ groups:
             )
           )
 
-      # Service availability (per-job, 5-min window) — excludes blackbox probe jobs
+      # Service availability (per-job, 5-min window) - excludes blackbox probe jobs
       - record: slo:service:availability_5m
         expr: avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[5m])
 
@@ -90,7 +90,7 @@ groups:
             / (1 - 0.999)
           )
 
-      # Probe latency error budget (7d window, 99.9% target — 99.9% probes < 3s)
+      # Probe latency error budget (7d window, 99.9% target - 99.9% probes < 3s)
       - record: slo:probe:latency_error_budget_remaining_7d
         expr: |
           1 - (

@@ -44,4 +44,4 @@ groups:
           severity: critical
         annotations:
           summary: "blackbox_exporter itself unreachable"
-          description: "Prometheus cannot reach blackbox_exporter on localhost:9115 — all HTTP/TLS probing is blind."
+          description: "Prometheus cannot reach blackbox_exporter on localhost:9115 - all HTTP/TLS probing is blind."

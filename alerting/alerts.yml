@@ -84,7 +84,7 @@ groups:
           severity: critical
         annotations:
           summary: "Container {{ $labels.name }} is down"
-          description: "{{ $labels.name }} hasn't reported metrics in over a minute — likely crashed or stopped"
+          description: "{{ $labels.name }} hasn't reported metrics in over a minute - likely crashed or stopped"
 
       - alert: ContainerHighMemory
         expr: container_memory_usage_bytes{name=~"your-container-1|your-container-2"} / 1024 / 1024 > 300
@@ -102,4 +102,4 @@ groups:
           severity: warning
         annotations:
           summary: "{{ $labels.name }} restarted recently"
-          description: "Container restarted within the last 10 minutes — check logs"
+          description: "Container restarted within the last 10 minutes - check logs"

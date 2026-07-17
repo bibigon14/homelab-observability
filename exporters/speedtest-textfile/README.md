@@ -9,13 +9,13 @@ bandwidth, ping, and jitter to Prometheus via the textfile collector.
 Ookla's backend returned HTTP 403 specifically to requests made by the
 `prometheus` system user on this host, while the identical binary worked
 fine as a regular interactive user with the same network path. The fix
-was simply: don't run this from `prometheus`'s crontab — run it from your
+was simply: don't run this from `prometheus`'s crontab - run it from your
 own user's crontab and have node_exporter read the resulting file (the
 textfile directory just needs to be writable by that user).
 
 **2. Use the full path to the binary in cron.**
 `cron`'s `PATH` is typically `/usr/bin:/bin`, which doesn't include
-`~/.local/bin` — a common install location for `speedtest`. A script that
+`~/.local/bin` - a common install location for `speedtest`. A script that
 works perfectly when you run it manually can silently fail (or run a
 *different*, system-wide `speedtest` with different behavior) under cron.
 Always `which speedtest` as the user that will run the cron job, and hardcode

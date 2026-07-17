@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# router_metrics.sh — collect temperature, memory, and per-core CPU usage
+# router_metrics.sh - collect temperature, memory, and per-core CPU usage
 # from a router (or any Linux box) over SSH, and write them as a
 # Prometheus textfile-collector .prom file.
 #

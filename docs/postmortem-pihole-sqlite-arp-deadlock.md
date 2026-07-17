@@ -1,4 +1,4 @@
-# Postmortem: Pi-hole FTL SQLite ARP Deadlock — Recurring DNS Blackout
+# Postmortem: Pi-hole FTL SQLite ARP Deadlock - Recurring DNS Blackout
 
 **Date:** 2026-07-11 | **Duration:** ~4 min/hour, recurring for multiple days | **Severity:** SEV2  
 **Author:** Dmitry Stepanov | **Status:** Resolved
@@ -7,7 +7,7 @@
 
 ## Summary
 
-Pi-hole FTL v6.6.2 had a bug where its ARP-parsing thread attempted to open a nested SQLite transaction (`BEGIN` inside an already-open `BEGIN`), causing an `SQLITE_ERROR` every hour at :05. Under normal conditions this failed silently. When Kubernetes CronJobs fired simultaneously at :00, they created multiple `veth` interfaces at once, flooding the ARP table and turning the silent bug into a full SQLite deadlock — blocking DNS resolution for ~4 minutes. The fix was updating Pi-hole FTL to v6.7 and staggering CronJob schedules.
+Pi-hole FTL v6.6.2 had a bug where its ARP-parsing thread attempted to open a nested SQLite transaction (`BEGIN` inside an already-open `BEGIN`), causing an `SQLITE_ERROR` every hour at :05. Under normal conditions this failed silently. When Kubernetes CronJobs fired simultaneously at :00, they created multiple `veth` interfaces at once, flooding the ARP table and turning the silent bug into a full SQLite deadlock - blocking DNS resolution for ~4 minutes. The fix was updating Pi-hole FTL to v6.7 and staggering CronJob schedules.
 
 ---
 
@@ -25,9 +25,9 @@ Pi-hole FTL v6.6.2 had a bug where its ARP-parsing thread attempted to open a ne
 
 | Time (PDT) | Event |
 |------------|-------|
-| Days prior | Pi-hole FTL v6.6.2 logs `SQLITE_ERROR: cannot start a transaction within a transaction` every hour at :05 — unnoticed |
+| Days prior | Pi-hole FTL v6.6.2 logs `SQLITE_ERROR: cannot start a transaction within a transaction` every hour at :05 - unnoticed |
 | 00:37 | Telegram alerts fire: simultaneous HomelabServiceDown for multiple services |
-| ~00:37–00:41 | DNS blackout: Pi-hole silent, fallback to 1.1.1.1 → NXDOMAIN for .homelab.local |
+| ~00:37-00:41 | DNS blackout: Pi-hole silent, fallback to 1.1.1.1 → NXDOMAIN for .homelab.local |
 | ~00:41 | Services recover automatically as deadlock clears |
 | Morning | Investigation begins; FTL.log reviewed |
 | Investigation | Correlation found: all CronJobs scheduled at `:00` → simultaneous pod starts → veth flood → ARP storm → SQLite deadlock |
@@ -41,7 +41,7 @@ Pi-hole FTL v6.6.2 had a bug where its ARP-parsing thread attempted to open a ne
 
 ### Technical chain
 
-Pi-hole FTL maintains a SQLite database for DNS query logging and statistics. Every hour at `:05`, FTL's ARP-parsing thread begins processing the ARP table to associate DNS queries with hostnames. This thread calls `BEGIN` to start a transaction — but if another transaction is already open (e.g., from concurrent DNS logging), SQLite returns:
+Pi-hole FTL maintains a SQLite database for DNS query logging and statistics. Every hour at `:05`, FTL's ARP-parsing thread begins processing the ARP table to associate DNS queries with hostnames. This thread calls `BEGIN` to start a transaction - but if another transaction is already open (e.g., from concurrent DNS logging), SQLite returns:
 
 ```
 ERROR: SQLite3: cannot start a transaction within a transaction; [BEGIN] (1)
@@ -49,11 +49,11 @@ ERROR: SQL query "BEGIN" failed: SQL logic error (SQLITE_ERROR)
 WARNING: Starting first transaction failed during ARP parsing
 ```
 
-In FTL v6.6.2 this error was not handled gracefully. Normally it failed quietly and recovered within seconds. However, when Kubernetes CronJobs all fired at `:00`, the node simultaneously created multiple `veth` interfaces for new pods. This triggered a burst of ARP table updates — the ARP-parsing thread was invoked repeatedly in rapid succession, each attempt failing and retrying, creating a thundering-herd effect on SQLite. The database locked completely, blocking all DNS query logging writes, which caused FTL to stall and stop answering DNS queries for ~4 minutes until the backlog cleared.
+In FTL v6.6.2 this error was not handled gracefully. Normally it failed quietly and recovered within seconds. However, when Kubernetes CronJobs all fired at `:00`, the node simultaneously created multiple `veth` interfaces for new pods. This triggered a burst of ARP table updates - the ARP-parsing thread was invoked repeatedly in rapid succession, each attempt failing and retrying, creating a thundering-herd effect on SQLite. The database locked completely, blocking all DNS query logging writes, which caused FTL to stall and stop answering DNS queries for ~4 minutes until the backlog cleared.
 
 ### Why did fallback to 1.1.1.1 not help?
 
-`/etc/resolv.conf` had both `127.0.0.1` (Pi-hole) and `1.1.1.1` listed. When Pi-hole went silent, the system correctly fell back to `1.1.1.1` — but `1.1.1.1` has no records for `.homelab.local`, so all internal DNS returned `NXDOMAIN` instead of resolving.
+`/etc/resolv.conf` had both `127.0.0.1` (Pi-hole) and `1.1.1.1` listed. When Pi-hole went silent, the system correctly fell back to `1.1.1.1` - but `1.1.1.1` has no records for `.homelab.local`, so all internal DNS returned `NXDOMAIN` instead of resolving.
 
 ---
 
@@ -72,12 +72,12 @@ In FTL v6.6.2 this error was not handled gracefully. Normally it failed quietly 
 - Uptime Kuma detected the outage immediately and sent Telegram alerts within seconds
 - FTL.log contained clear, timestamped errors that led directly to root cause
 - The fix (pihole -up) was available upstream and took under 2 minutes to apply
-- Recovery was automatic — no manual restart of Pi-hole was needed after each event
+- Recovery was automatic - no manual restart of Pi-hole was needed after each event
 
 ## What Went Poorly
 
-- SQLite errors in FTL.log were not alerted on — the bug was firing for days/weeks undetected
-- All CronJobs scheduled at `:00` with no intentional staggering — an obvious single point of temporal congestion
+- SQLite errors in FTL.log were not alerted on - the bug was firing for days/weeks undetected
+- All CronJobs scheduled at `:00` with no intentional staggering - an obvious single point of temporal congestion
 - No DNS health check that specifically tests `.homelab.local` resolution (probes were HTTPS-based)
 - `cert-manager` was excluded from chaos-monkey exclusions, meaning cert rotation pods could have been killed at the worst moment
 
@@ -102,7 +102,7 @@ In FTL v6.6.2 this error was not handled gracefully. Normally it failed quietly 
 
 **Silent errors in logs that fire repeatedly are pre-incident signals.** The SQLite error was there for days. An alert like `count_over_time({filename="/var/log/pihole/FTL.log"} |= "SQLITE_ERROR"[5m]) > 3` would have surfaced this before it cascaded.
 
-**Fallback DNS that returns NXDOMAIN for internal names is worse than no fallback.** `1.1.1.1` as a fallback gave false confidence in the resolv.conf setup. For split-horizon DNS, internal and external resolvers need to be treated differently — or the fallback should be another internal resolver (e.g., a secondary Pi-hole instance).
+**Fallback DNS that returns NXDOMAIN for internal names is worse than no fallback.** `1.1.1.1` as a fallback gave false confidence in the resolv.conf setup. For split-horizon DNS, internal and external resolvers need to be treated differently - or the fallback should be another internal resolver (e.g., a secondary Pi-hole instance).
 
 ---
 

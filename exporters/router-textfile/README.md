@@ -6,13 +6,13 @@ SSH-reachable Linux device with `/proc`) and exposes them to Prometheus via
 
 ## Why this approach
 
-Most consumer routers can't run `node_exporter` directly — no package
+Most consumer routers can't run `node_exporter` directly - no package
 manager, limited flash storage, vendor firmware that doesn't want extra
 daemons. But they have SSH and `/proc`. This script does the minimum:
 
 - SSH in, read `/sys/class/thermal/thermal_zone0/temp` and `/proc/meminfo`
 - Read `/proc/stat` twice, one second apart, and compute per-core CPU usage
-  from the delta (the standard technique — instantaneous CPU% isn't
+  from the delta (the standard technique - instantaneous CPU% isn't
   meaningful from a single `/proc/stat` snapshot)
 - Write everything in Prometheus exposition format to a `.prom` file
 
@@ -51,7 +51,7 @@ every scrape.
    cat /var/lib/prometheus/node-exporter/router_metrics.prom
    ```
 
-5. Schedule via cron (every minute is fine — the script itself takes ~1s
+5. Schedule via cron (every minute is fine - the script itself takes ~1s
    due to the two `/proc/stat` samples):
 
    ```cron
@@ -76,5 +76,5 @@ router_cpu_usage_percent{core="cpu3"} 4.00
 - The script writes to `${OUTPUT_FILE}.tmp` and then `mv`s it into place,
   so `node_exporter` never reads a partially-written file mid-scrape.
 - Set thresholds in Grafana around 60°C (warning) and 75°C (critical) for
-  `router_temperature_celsius` — consumer router SoCs typically throttle
+  `router_temperature_celsius` - consumer router SoCs typically throttle
   or become unstable above 75-80°C.

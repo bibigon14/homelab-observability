@@ -25,7 +25,7 @@
       "id": 1,
       "title": "Router Temperature (°C)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "fieldConfig": {
         "defaults": {
@@ -49,7 +49,7 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
           "expr": "router_temperature_celsius",
           "legendFormat": "router"
         }
@@ -59,7 +59,7 @@
       "id": 2,
       "title": "Router CPU per core (%)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "fieldConfig": {
         "defaults": {
@@ -77,7 +77,7 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
           "expr": "router_cpu_usage_percent",
           "legendFormat": "{{core}}"
         }
@@ -87,7 +87,7 @@
       "id": 3,
       "title": "Router Memory (bytes)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "fieldConfig": {
         "defaults": {
@@ -103,13 +103,13 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
           "expr": "router_memory_total_bytes",
           "legendFormat": "total"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
           "expr": "router_memory_available_bytes",
           "legendFormat": "available"
         }
@@ -119,7 +119,7 @@
       "id": 4,
       "title": "Internet Speed (Mb/s)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "fieldConfig": {
         "defaults": {
@@ -135,14 +135,14 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "speedtest_download_bits_per_second / 1000000",
+          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+          "expr": "speedtest_download_mbps",
           "legendFormat": "download"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "speedtest_upload_bits_per_second / 1000000",
+          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+          "expr": "speedtest_upload_mbps",
           "legendFormat": "upload"
         }
       ]
@@ -151,7 +151,7 @@
       "id": 5,
       "title": "Pi-hole: Queries vs Blocked",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
       "fieldConfig": {
         "defaults": {
@@ -167,13 +167,13 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
           "expr": "pihole_dns_queries_total",
           "legendFormat": "total queries"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
           "expr": "pihole_dns_queries_blocked_total",
           "legendFormat": "blocked"
         }
@@ -183,7 +183,7 @@
       "id": 6,
       "title": "Pi-hole: Queries by Type",
       "type": "barchart",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
       "fieldConfig": {
         "defaults": {
@@ -197,7 +197,7 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
           "expr": "pihole_query_by_type",
           "legendFormat": "{{type}}",
           "instant": true
@@ -209,7 +209,7 @@
       "title": "Exporter Up (staleness check)",
       "type": "stat",
       "description": "If any of these go to 0, that exporter's metrics may be stale -- this is the alert this homelab was missing before the Pi-hole v6 incident (see docs/postmortems).",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 24 },
       "fieldConfig": {
         "defaults": {
@@ -232,13 +232,13 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
           "expr": "up{job=\"pihole6\"}",
           "legendFormat": "pihole6_exporter"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
           "expr": "up{job=\"node\"}",
           "legendFormat": "node_exporter"
         }

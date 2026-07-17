@@ -50,7 +50,7 @@ groups:
           severity: warning
         annotations:
           summary: "CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} missed its schedule"
-          description: "CronJob has not run successfully in over 3 hours — check if it's suspended or the controller is stuck."
+          description: "CronJob has not run successfully in over 3 hours - check if it's suspended or the controller is stuck."
 
       - alert: KubePersistentVolumeClaimNearFull
         expr: |
@@ -81,4 +81,4 @@ groups:
           severity: critical
         annotations:
           summary: "kube-state-metrics target down"
-          description: "Prometheus cannot scrape kube-state-metrics on homebridge for over 2 minutes — k8s-level alerting is blind."
+          description: "Prometheus cannot scrape kube-state-metrics on homebridge for over 2 minutes - k8s-level alerting is blind."

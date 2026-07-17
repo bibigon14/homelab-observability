@@ -1,13 +1,13 @@
 #!/bin/bash
 #
-# speedtest_exporter.sh — run `speedtest` (Ookla CLI) and write the
+# speedtest_exporter.sh - run `speedtest` (Ookla CLI) and write the
 # results as a Prometheus textfile-collector .prom file.
 #
 # Configuration:
 #   SPEEDTEST_BIN - full path to the speedtest binary (see note below)
 #   OUTPUT_FILE   - where to write the .prom file
 #
-# IMPORTANT — run this as a regular user, not as the `prometheus` user
+# IMPORTANT - run this as a regular user, not as the `prometheus` user
 # or any other service account:
 #
 #   Ookla's speedtest.net backend returns HTTP 403 to requests from some

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-pihole6_exporter.py — minimal Prometheus exporter for Pi-hole v6's
+pihole6_exporter.py - minimal Prometheus exporter for Pi-hole v6's
 session-based API.
 
 Why this exists: Pi-hole v5 exporters authenticate with a static API
 token in a query string (`?auth=<token>`). Pi-hole v6 replaced this with
-session-based auth — POST credentials to /api/auth, get a session ID
+session-based auth - POST credentials to /api/auth, get a session ID
 (SID), and include it on subsequent requests. Exporters written for v5
 fail silently or with auth errors after an in-place v5 -> v6 upgrade.
 
@@ -16,7 +16,7 @@ This exporter:
     every scrape)
   - Reads /api/stats/summary and /api/stats/query_types
   - Handles the v6 query_types response shape: {"types": {"A": n, ...}}
-    (v5 returned a flat list under a different key — code that assumes
+    (v5 returned a flat list under a different key - code that assumes
     the old shape will KeyError or silently report zero)
 
 Environment variables:
@@ -66,7 +66,7 @@ def api_get(path: str) -> dict:
 
     resp = requests.get(f"{BASE_URL}{path}", headers={"X-FTL-SID": _session_id}, timeout=10)
     if resp.status_code == 401:
-        # Session expired — re-authenticate once and retry
+        # Session expired - re-authenticate once and retry
         authenticate()
         resp = requests.get(f"{BASE_URL}{path}", headers={"X-FTL-SID": _session_id}, timeout=10)
 
@@ -84,7 +84,7 @@ def collect():
     clients_active.set(summary.get("clients", {}).get("active", 0))
 
     # v6 shape: {"types": {"A": 123, "AAAA": 45, ...}}
-    # (NOT a list — a common bug when porting v5 code is assuming a list
+    # (NOT a list - a common bug when porting v5 code is assuming a list
     # of {"name": ..., "count": ...} dicts here)
     types = api_get("/stats/query_types").get("types", {})
     for qtype, count in types.items():

@@ -13,9 +13,9 @@ broke an existing exporter, and what changed in the API.
 |---|---|---|
 | Auth | static token: `GET /admin/api.php?auth=<token>` | session: `POST /api/auth` with password → `sid`, then `X-FTL-SID` header on subsequent requests |
 | Summary stats | `/admin/api.php?summary` | `GET /api/stats/summary` |
-| Query types | flat structure | `GET /api/stats/query_types` → `{"types": {"A": n, "AAAA": n, ...}}` (a **dict**, not a list — code written against v5 that does `for item in query_types: item["name"]` will break or silently report nothing) |
+| Query types | flat structure | `GET /api/stats/query_types` → `{"types": {"A": n, "AAAA": n, ...}}` (a **dict**, not a list - code written against v5 that does `for item in query_types: item["name"]` will break or silently report nothing) |
 
-Sessions also have a `webserver.api.max_sessions` limit — an exporter
+Sessions also have a `webserver.api.max_sessions` limit - an exporter
 that authenticates on every scrape (rather than reusing a session) can
 exhaust this and start getting locked out, which looks like an
 intermittent auth failure rather than a config problem.
@@ -57,7 +57,7 @@ If you see `pihole_query_by_type{type="A"} 0` for everything (but
 Pi-hole's own admin UI shows real traffic), check:
 
 1. Is `PIHOLE_PASSWORD` actually current? Pi-hole's CLI password
-   (`/etc/pihole/cli_pw`) can rotate on certain operations — if your
+   (`/etc/pihole/cli_pw`) can rotate on certain operations - if your
    exporter reads it from there, a stale copy will authenticate
    successfully but then return empty/zeroed stats for some endpoints.
 2. Is something else (another exporter, a stale systemd unit pointing at
