@@ -1,0 +1,84 @@
+# Thanos alerting rules for a Raspberry Pi homelab.
+#
+# Covers all four Thanos components + R2/S3 backend health.
+# Assumes job names: thanos-sidecar, thanos-store, thanos-query, thanos-compact.
+# Adapt if yours differ.
+
+groups:
+  - name: thanos
+    rules:
+      - alert: ThanosObjstoreOperationFailures
+        expr: increase(thanos_objstore_bucket_operation_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Thanos R2 bucket operation failures"
+          description: "{{ $labels.job }} has {{ $value }} bucket operation failures in last 5m"
+
+      - alert: ThanosNoSuccessfulUpload
+        expr: |
+          (thanos_objstore_bucket_last_successful_upload_time > 0)
+          and
+          (time() - thanos_objstore_bucket_last_successful_upload_time > 86400)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Thanos no successful upload to R2"
+          description: "{{ $labels.job }} last successful upload was more than 24 hours ago"
+
+      - alert: ThanosBlockSyncFailures
+        expr: increase(thanos_blocks_meta_sync_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Thanos block sync failures"
+          description: "{{ $labels.job }} has block metadata sync failures"
+
+      - alert: ThanosCompactHalted
+        expr: thanos_compact_halted == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Thanos Compactor halted"
+          description: "Thanos Compactor has halted — check for errors"
+
+      # Catch full process death — thanos_compact_halted goes stale, not to 1
+      - alert: ThanosCompactDown
+        expr: up{job="thanos-compact"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Thanos Compactor is down"
+          description: "thanos-compact unreachable for 10+ min (compaction/downsampling paused)"
+
+      - alert: ThanosSidecarDown
+        expr: up{job="thanos-sidecar"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Thanos Sidecar is down"
+          description: "thanos-sidecar unreachable for 5+ min (Prometheus data not uploading to R2)"
+
+      - alert: ThanosStoreDown
+        expr: up{job="thanos-store"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Thanos Store is down"
+          description: "thanos-store unreachable for 5+ min (long-term queries broken)"
+
+      - alert: ThanosQueryDown
+        expr: up{job="thanos-query"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Thanos Query is down"
+          description: "thanos-query unreachable for 5+ min (Grafana can't query metrics)"

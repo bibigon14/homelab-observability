@@ -13,13 +13,13 @@ groups:
   - name: homelab
     rules:
       - alert: NodeDown
-        expr: up == 0
-        for: 1m
+        expr: up{job="node"} == 0
+        for: 5m
         labels:
           severity: critical
         annotations:
-          summary: "{{ $labels.instance }} is down"
-          description: "{{ $labels.instance }} has been unreachable for more than 1 minute"
+          summary: "Node {{ $labels.instance }} is down"
+          description: "node_exporter on {{ $labels.instance }} unreachable for 5+ minutes"
 
       - alert: HighCPU
         expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
