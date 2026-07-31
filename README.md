@@ -137,6 +137,75 @@ Python apps are instrumented with OpenTelemetry SDK, shipping traces via OTLP to
 
 Traces are queryable in Grafana → Explore → Tempo with TraceQL. Typical run: ~870ms total, of which ~610ms is Telegram delivery.
 
+## Thanos Compactor (long-term storage)
+
+`thanos-compact` runs on the host via systemd (`/etc/systemd/system/thanos-compact.service`), compacting and downsampling Prometheus blocks shipped to Cloudflare R2 (S3-compatible, `homelab-thanos` bucket).
+
+### Retention
+
+```
+--retention.resolution-raw=15d
+--retention.resolution-5m=60d
+--retention.resolution-1h=90d
+```
+
+`resolution-1h` was reduced from 180d to 90d on 2026-07-30 to keep R2 storage comfortably under the 10 GB free-tier threshold.
+
+### Systemd hardening
+
+Two fixes applied after a corruption incident (2026-07-29/30 — a recurrence of a similar block corruption from 2026-07-18) exposed gaps in the unit file:
+
+- **`TimeoutStopSec=300`** (in `[Service]`) — the default ~90s stop timeout wasn't enough for the compactor to shut down gracefully mid-operation, so systemd was SIGKILLing it. A forced kill mid-write/mid-upload is a plausible contributor to block corruption.
+- **`StartLimitIntervalSec=600` / `StartLimitBurst=5`** (in `[Unit]`, not `[Service]` — this matters, systemd silently ignores them in the wrong section) — caps crash-loop restarts at 5 within 10 minutes before giving up and requiring manual intervention, instead of restarting forever.
+
+### Recovering from a halted or failed compactor
+
+```bash
+# Check current state
+curl -s http://localhost:19194/metrics | grep thanos_compact_halted
+systemctl status thanos-compact --no-pager
+
+# If in a hard `failed` state (StartLimitBurst exhausted):
+sudo systemctl reset-failed thanos-compact
+
+# Find the corrupted block from the logs (look for "checksum mismatch")
+journalctl -u thanos-compact --no-pager | grep -iE "checksum|halt"
+
+# Mark it for deletion (no-compact alone does NOT protect against downsampling
+# touching it, and no-downsample-only marks leave the bad block sitting around
+# to be rediscovered later — prefer deletion unless there's a specific reason
+# to keep the raw data):
+sudo -u prometheus thanos tools bucket mark \
+  --id=<BLOCK_ULID> \
+  --marker=deletion-mark.json \
+  --details="checksum mismatch, detected $(date)" \
+  --objstore.config-file=/etc/thanos/objstore.yml
+
+# Force immediate physical deletion instead of waiting the default 48h delete-delay,
+# so the next compaction/downsampling pass doesn't touch the same block again:
+sudo sed -i '/--wait \\/a\  --delete-delay=0s \\' /etc/systemd/system/thanos-compact.service
+sudo systemctl daemon-reload
+sudo systemctl restart thanos-compact
+journalctl -u thanos-compact -f   # confirm a full compact -> downsample -> retention cycle completes
+
+# Revert once confirmed healthy:
+sudo sed -i '/--delete-delay=0s \\/d' /etc/systemd/system/thanos-compact.service
+sudo systemctl daemon-reload
+sudo systemctl restart thanos-compact
+```
+
+### Proactive corruption scan
+
+Corrupted blocks have twice now only been found by crashing into them (or, once, by a manual scan). Worth running periodically instead of waiting:
+
+```bash
+sudo -u prometheus thanos tools bucket verify \
+  --objstore.config-file=/etc/thanos/objstore.yml \
+  -i index_known_issues
+```
+
+Read-only by default (no `--repair` flag) — safe to run against a live bucket. Not yet wired up as a scheduled job.
+
 ## Dashboards
 
 All dashboards are exported to `grafana/dashboards/` and can be imported via the Grafana API or UI. Nine dashboards covering host, container, Kubernetes, logs, networking, and application metrics:
