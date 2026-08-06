@@ -20,3 +20,16 @@ Started as "I'll just block some ads." Escalated quickly.
 ## Why document this at all
 
 Mostly for future-me, who will absolutely forget why a particular CronJob has a `timeZone` field or why one service insists on `--network host`. Partly because a working homelab with real incidents, real postmortems, and a real migration story is a more honest signal of SRE skill than another todo-app tutorial.
+
+## 2026-08-05 — Thanos compact triple-incident + auto-remediate
+
+Two distinct Thanos-internal `checksum mismatch` failure modes surfaced
+within 16 hours on `homebridge`. Investigation confirmed both are
+long-standing upstream bugs (issues #5944, #6194, #5917, #8611), not
+local corruption: R2 returns byte-stable sha256 on repeat reads, `thanos
+tools bucket verify` reports the affected blocks clean, no dmesg/EDAC
+events, peak memory 735MB out of 8GB. Wrote a blameless postmortem, an
+operational runbook, and deployed a systemd-based auto-remediate so the
+pattern doesn't require a human next time.
+
+See: `docs/postmortems/2026-08-05-thanos-compact-checksum-cascade.md`
