@@ -118,23 +118,23 @@ RECENT_LOG=$(journalctl -u "$SERVICE" --since "1 hour ago" --no-pager 2>/dev/nul
 
 BLOCK_ID=$(echo "$RECENT_LOG" \
     | grep -oE "downsample block [0-9A-Z]{26}" \
-    | awk '{print $NF}' | tail -1)
+    | awk '{print $NF}' | tail -1 || true)
 MARKER=""; DETAILS_LINE=""
 
 if [ -n "$BLOCK_ID" ]; then
     MARKER="no-downsample-mark.json"
     DETAILS_LINE=$(echo "$RECENT_LOG" \
         | grep -oE "get chunk [0-9]+, series [0-9]+: checksum mismatch expected:[0-9a-f]+, actual:[0-9a-f]+" \
-        | tail -1)
+        | tail -1 || true)
 else
     BLOCK_ID=$(echo "$RECENT_LOG" \
         | grep -oE "from block [0-9A-Z]{26}" \
-        | awk '{print $NF}' | tail -1)
+        | awk '{print $NF}' | tail -1 || true)
     if [ -n "$BLOCK_ID" ]; then
         MARKER="no-compact-mark.json"
         DETAILS_LINE=$(echo "$RECENT_LOG" \
             | grep -oE "cannot populate chunk [0-9]+ from block [0-9A-Z]{26}: checksum mismatch expected:[0-9a-fx]+, actual:[0-9a-fx]+" \
-            | tail -1)
+            | tail -1 || true)
     fi
 fi
 
