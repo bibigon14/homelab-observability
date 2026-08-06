@@ -1,0 +1,11 @@
+[Unit]
+Description=Run thanos-compact auto-remediation every 2 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+# Auto-remediate thanos-compact.service failures on the homelab Pi 5.
+#
+# Handles three failure modes:
+#   (1) systemd unit failed (crash-loop past StartLimitBurst, typically
+#       downsample CRC bug on compactor-source blocks)
+#   (2) thanos_compact_halted=1 (silent halt on compact-populate CRC error,
+#       process alive but idle, systemd sees it as healthy)
+#   (3) thanos_compact_downsample_failures_total delta above last tick
+#       (early detection before the process gives up)
+#
+# In each case: parse the offending block ULID from journalctl, pick the
+# correct marker for the stage (no-downsample-mark.json vs
+# no-compact-mark.json), mark the block, restart the service, and post an
+# Alertmanager-shaped notification to the local telegram-bridge webhook.
+#
+# See docs/runbooks/thanos-compact.md and
+# docs/postmortems/2026-08-05-thanos-compact-checksum-cascade.md for
+# context on why this is necessary.
+
+set -euo pipefail
+
+SERVICE="thanos-compact.service"
+METRICS_URL="http://localhost:19194/metrics"
+OBJSTORE_CONFIG="/etc/thanos/objstore.yml"
+THANOS_BIN="/usr/local/bin/thanos"
+STATE_DIR="/var/lib/thanos-remediate"
+BRIDGE_URL="http://localhost:30119/webhook"
+MAX_ACTIONS_PER_HOUR=5
+
+mkdir -p "$STATE_DIR"
+
+log() { logger -t thanos-remediate -- "$*"; echo "[$(date -u +%FT%TZ)] $*" >&2; }
+
+# Send an Alertmanager-shaped alert to the bridge.
+# args: alertname, severity, summary, description
+send_alert() {
+    local alertname="$1" severity="$2" summary="$3" description="$4"
+    local ts; ts=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
+    curl -sS --max-time 10 -X POST "$BRIDGE_URL" \
+        -H "Content-Type: application/json" \
+        -d @- <<PAYLOAD >/dev/null 2>&1 || log "bridge post failed"
+{
+  "receiver": "telegram-bridge",
+  "status": "firing",
+  "alerts": [{
+    "status": "firing",
+    "labels": {
+      "alertname": "${alertname}",
+      "severity": "${severity}",
+      "location": "home",
+      "monitor": "homebridge",
+      "service": "thanos-compact"
+    },
+    "annotations": {
+      "summary": "${summary}",
+      "description": "${description}"
+    },
+    "startsAt": "${ts}",
+    "endsAt": "0001-01-01T00:00:00Z"
+  }],
+  "version": "4"
+}
+PAYLOAD
+}
+
+# Read a Prometheus metric summed across all label combinations.
+# Handles both bare metrics ("name value") and labelled ones ("name{labels} value").
+read_metric() {
+    local name="$1"
+    curl -sS --max-time 5 "$METRICS_URL" 2>/dev/null \
+        | grep -E "^${name}( |\{)" \
+        | awk '{sum += $NF} END {print int(sum+0)}'
+}
+
+# --- Decide if remediation is needed ---
+NEEDS=0; TRIGGER=""; REASON=""
+
+if systemctl is-failed --quiet "$SERVICE"; then
+    NEEDS=1; TRIGGER="failed"; REASON="systemd unit failed"
+elif systemctl is-active --quiet "$SERVICE"; then
+    HALTED=$(read_metric "thanos_compact_halted"); HALTED=${HALTED:-0}
+    if [ "$HALTED" -eq 1 ]; then
+        NEEDS=1; TRIGGER="halted"; REASON="thanos_compact_halted=1"
+    else
+        FAILS=$(read_metric "thanos_compact_downsample_failures_total"); FAILS=${FAILS:-0}
+        LAST_FILE="$STATE_DIR/last_downsample_failures"
+        LAST=$(cat "$LAST_FILE" 2>/dev/null || echo 0)
+        if [ "$FAILS" -gt "$LAST" ]; then
+            NEEDS=1; TRIGGER="downsample_fail"
+            REASON="downsample_failures_total: ${LAST} -> ${FAILS}"
+        fi
+        echo "$FAILS" > "$LAST_FILE"
+    fi
+fi
+
+[ "$NEEDS" -eq 0 ] && exit 0
+
+log "remediation needed: $TRIGGER / $REASON"
+
+# --- Rate limit ---
+RATE_LOG="$STATE_DIR/actions.log"
+touch "$RATE_LOG"
+NOW=$(date +%s)
+CUTOFF=$((NOW - 3600))
+awk -v c="$CUTOFF" '$1 > c' "$RATE_LOG" > "$RATE_LOG.tmp" && mv "$RATE_LOG.tmp" "$RATE_LOG"
+COUNT=$(wc -l < "$RATE_LOG")
+if [ "$COUNT" -ge "$MAX_ACTIONS_PER_HOUR" ]; then
+    log "rate limit hit ($COUNT/${MAX_ACTIONS_PER_HOUR})"
+    send_alert "ThanosAutoRemediateRateLimit" "critical" \
+        "Auto-remediate rate limit hit" \
+        "${COUNT} actions in last hour, giving up. Latest trigger: ${TRIGGER}. Manual intervention required."
+    exit 1
+fi
+
+# --- Identify block and stage from recent logs ---
+RECENT_LOG=$(journalctl -u "$SERVICE" --since "1 hour ago" --no-pager 2>/dev/null)
+
+BLOCK_ID=$(echo "$RECENT_LOG" \
+    | grep -oE "downsample block [0-9A-Z]{26}" \
+    | awk '{print $NF}' | tail -1)
+MARKER=""; DETAILS_LINE=""
+
+if [ -n "$BLOCK_ID" ]; then
+    MARKER="no-downsample-mark.json"
+    DETAILS_LINE=$(echo "$RECENT_LOG" \
+        | grep -oE "get chunk [0-9]+, series [0-9]+: checksum mismatch expected:[0-9a-f]+, actual:[0-9a-f]+" \
+        | tail -1)
+else
+    BLOCK_ID=$(echo "$RECENT_LOG" \
+        | grep -oE "from block [0-9A-Z]{26}" \
+        | awk '{print $NF}' | tail -1)
+    if [ -n "$BLOCK_ID" ]; then
+        MARKER="no-compact-mark.json"
+        DETAILS_LINE=$(echo "$RECENT_LOG" \
+            | grep -oE "cannot populate chunk [0-9]+ from block [0-9A-Z]{26}: checksum mismatch expected:[0-9a-fx]+, actual:[0-9a-fx]+" \
+            | tail -1)
+    fi
+fi
+
+if [ -z "$BLOCK_ID" ] || [ -z "$MARKER" ]; then
+    log "cannot identify block/stage from logs"
+    send_alert "ThanosAutoRemediateGaveUp" "critical" \
+        "Cannot identify block/stage" \
+        "Trigger: ${TRIGGER}. Reason: ${REASON}. Manual investigation required."
+    exit 1
+fi
+
+DETAILS="auto-remediate $(date -u +%FT%TZ): ${DETAILS_LINE:-$REASON}"
+log "marking $BLOCK_ID with $MARKER"
+
+# --- Mark the block ---
+if ! "$THANOS_BIN" tools bucket mark \
+    --id="$BLOCK_ID" \
+    --objstore.config-file="$OBJSTORE_CONFIG" \
+    --marker="$MARKER" \
+    --details="$DETAILS" >>"$STATE_DIR/mark.log" 2>&1; then
+    log "mark failed for $BLOCK_ID"
+    send_alert "ThanosAutoRemediateFailed" "critical" \
+        "Failed to mark block ${BLOCK_ID}" \
+        "Trigger: ${TRIGGER}. Marker: ${MARKER}. Check /var/lib/thanos-remediate/mark.log."
+    exit 1
+fi
+
+# --- Restart based on trigger ---
+if [ "$TRIGGER" = "failed" ]; then
+    systemctl reset-failed "$SERVICE" || true
+    systemctl start "$SERVICE" || true
+else
+    # halted/downsample_fail: process alive but stuck; SIGTERM hangs, use SIGKILL
+    log "using SIGKILL (compact may be halted, SIGTERM hangs)"
+    systemctl kill --signal=SIGKILL "$SERVICE" || true
+    sleep 3
+    systemctl reset-failed "$SERVICE" 2>/dev/null || true
+    systemctl start "$SERVICE" || true
+fi
+
+echo "$NOW $TRIGGER $BLOCK_ID $MARKER" >> "$RATE_LOG"
+
+# --- Verify recovery ---
+sleep 30
+if systemctl is-active --quiet "$SERVICE"; then
+    HALTED_NOW=$(read_metric "thanos_compact_halted"); HALTED_NOW=${HALTED_NOW:-0}
+    if [ "$HALTED_NOW" -eq 1 ]; then
+        STATUS="active but halted=1 (another bad block?)"
+        SEV="critical"
+    else
+        STATUS="active, halted=0, recovery successful"
+        SEV="info"
+    fi
+else
+    STATUS="NOT active after 30s"
+    SEV="critical"
+fi
+
+send_alert "ThanosCompactAutoRemediated" "$SEV" \
+    "Auto-remediated: ${TRIGGER} on ${BLOCK_ID}" \
+    "Trigger: ${TRIGGER}. Block: ${BLOCK_ID}. Marker: ${MARKER}. Details: ${DETAILS_LINE:-none}. Service: ${STATUS}."
+
+log "done: $BLOCK_ID $MARKER, $STATUS"

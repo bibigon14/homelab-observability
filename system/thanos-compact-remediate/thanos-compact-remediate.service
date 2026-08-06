@@ -1,0 +1,13 @@
+[Unit]
+Description=Thanos Compact auto-remediation
+Documentation=file:///opt/homelab-observability/docs/runbooks/thanos-compact.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/thanos-compact-auto-remediate
+User=root
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/thanos-remediate
+ProtectHome=true
+PrivateTmp=true
