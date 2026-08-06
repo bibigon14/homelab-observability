@@ -41,11 +41,31 @@ alerting/
                         drift between git and cluster state, and failed
                         or stalled deployments
 
-docs/postmortems/
-  2026-06-02-pihole-v6-exporter-outage.md
-                       Blameless postmortem: Pi-hole v5 -> v6 upgrade
-                       silently broke the Prometheus exporter; timeline,
-                       root cause, fix, and follow-ups.
+docs/
+  postmortems/
+    2026-06-02-pihole-v6-exporter-outage.md
+                        Blameless postmortem: Pi-hole v5 -> v6 upgrade
+                        silently broke the Prometheus exporter; timeline,
+                        root cause, fix, and follow-ups.
+    2026-08-05-thanos-compact-checksum-cascade.md
+                        Blameless postmortem: three thanos-compact
+                        incidents in 16 hours, all driven by a known
+                        upstream Thanos checksum-mismatch bug; verified
+                        the blocks were intact, root cause was Thanos's
+                        own read path.
+  runbooks/
+    thanos-compact.md   Operational reference: three failure modes with
+                        symptoms, grep commands, correct markers for
+                        each stage, manual recovery if auto-remediate
+                        is disabled.
+
+system/
+  thanos-compact-remediate/
+                        systemd oneshot service + 2-minute timer that
+                        watches thanos-compact for the known checksum-
+                        mismatch failure modes, marks the offending
+                        block, restarts the service, and posts via the
+                        local telegram-bridge webhook. Rate-limited.
 
 grafana/
   dashboards/
