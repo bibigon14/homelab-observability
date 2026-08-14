@@ -20,7 +20,7 @@
   "liveNow": false,
   "panels": [
     {
-      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+      "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -49,7 +49,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+          "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
           "expr": "thanos_compact_halted{job=\"thanos-compact\"}",
           "legendFormat": "halted",
           "refId": "A"
@@ -59,7 +59,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+      "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -88,7 +88,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+          "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
           "expr": "up{job=\"thanos-compact\"}",
           "legendFormat": "up",
           "refId": "A"
@@ -98,7 +98,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+      "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -127,7 +127,7 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+          "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
           "expr": "sum(increase(thanos_compact_blocks_marked_total{job=\"thanos-compact\"}[7d]))",
           "legendFormat": "blocks marked",
           "refId": "A"
@@ -137,7 +137,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+      "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -162,7 +162,7 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+          "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
           "expr": "thanos_compact_halted{job=\"thanos-compact\"}",
           "legendFormat": "halted",
           "refId": "A"
@@ -172,7 +172,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+      "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -197,13 +197,13 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+          "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
           "expr": "sum(rate(thanos_compact_group_compaction_runs_started_total{job=\"thanos-compact\"}[10m]))",
           "legendFormat": "started",
           "refId": "A"
         },
         {
-          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+          "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
           "expr": "sum(rate(thanos_compact_group_compaction_runs_completed_total{job=\"thanos-compact\"}[10m]))",
           "legendFormat": "completed",
           "refId": "B"
@@ -213,7 +213,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+      "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -235,7 +235,7 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+          "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
           "expr": "sum by (operation) (rate(thanos_objstore_bucket_operation_failures_total{job=\"thanos-compact\"}[10m]))",
           "legendFormat": "{{operation}}",
           "refId": "A"
@@ -245,7 +245,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+      "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -267,7 +267,7 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+          "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
           "expr": "sum by (marker, reason) (increase(thanos_compact_blocks_marked_total{job=\"thanos-compact\"}[1h]))",
           "legendFormat": "{{marker}} {{reason}}",
           "refId": "A"
@@ -277,7 +277,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+      "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -299,7 +299,7 @@
       },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "dfnhxbhcjm3uoc" },
+          "datasource": { "type": "prometheus", "uid": "dfqb93zfc9iwwd" },
           "expr": "sum by (operation) (rate(thanos_objstore_bucket_operations_total{job=\"thanos-compact\"}[10m]))",
           "legendFormat": "{{operation}}",
           "refId": "A"

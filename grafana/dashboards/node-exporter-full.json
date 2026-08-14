@@ -1098,7 +1098,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfnhxbhcjm3uoc"
+        "uid": "dfqb93zfc9iwwd"
       },
       "fieldConfig": {
         "defaults": {
@@ -1187,7 +1187,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "node_thermal_zone_temp{type=\"cpu-thermal\"}",
@@ -1199,7 +1199,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "node_hwmon_temp_celsius{chip=\"nvme_nvme0\",sensor=\"temp1\"}",
@@ -1211,7 +1211,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "node_hwmon_temp_celsius{chip=\"nvme_nvme0\",sensor=\"temp2\"}",
@@ -1227,7 +1227,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfnhxbhcjm3uoc"
+        "uid": "dfqb93zfc9iwwd"
       },
       "fieldConfig": {
         "defaults": {
@@ -1313,7 +1313,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "rate(node_network_receive_bytes_total{device=\"wg0\"}[5m]) * 8",
@@ -1325,7 +1325,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "rate(node_network_transmit_bytes_total{device=\"wg0\"}[5m]) * 8",
@@ -1341,7 +1341,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfnhxbhcjm3uoc"
+        "uid": "dfqb93zfc9iwwd"
       },
       "fieldConfig": {
         "defaults": {
@@ -1410,7 +1410,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1427,7 +1427,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfnhxbhcjm3uoc"
+        "uid": "dfqb93zfc9iwwd"
       },
       "fieldConfig": {
         "defaults": {
@@ -1496,7 +1496,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "node_thermal_zone_temp{type=\"cpu-thermal\"}",
@@ -16973,7 +16973,7 @@
         "allowCustomValue": true,
         "current": {
           "text": "prometheus",
-          "value": "dfnhxbhcjm3uoc"
+          "value": "dfqb93zfc9iwwd"
         },
         "hide": 0,
         "includeAll": false,

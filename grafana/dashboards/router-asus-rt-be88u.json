@@ -24,7 +24,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfnhxbhcjm3uoc"
+        "uid": "dfqb93zfc9iwwd"
       },
       "fieldConfig": {
         "defaults": {
@@ -110,7 +110,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "router_cpu_usage_percent",
@@ -126,7 +126,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfnhxbhcjm3uoc"
+        "uid": "dfqb93zfc9iwwd"
       },
       "fieldConfig": {
         "defaults": {
@@ -212,7 +212,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "router_memory_available_bytes",
@@ -228,7 +228,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfnhxbhcjm3uoc"
+        "uid": "dfqb93zfc9iwwd"
       },
       "fieldConfig": {
         "defaults": {
@@ -293,7 +293,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "router_temperature_celsius",
@@ -309,7 +309,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfnhxbhcjm3uoc"
+        "uid": "dfqb93zfc9iwwd"
       },
       "fieldConfig": {
         "defaults": {
@@ -376,7 +376,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "(router_memory_total_bytes - router_memory_available_bytes) / router_memory_total_bytes * 100",
@@ -392,7 +392,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfnhxbhcjm3uoc"
+        "uid": "dfqb93zfc9iwwd"
       },
       "fieldConfig": {
         "defaults": {
@@ -461,7 +461,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "(nas_disk_used_bytes / nas_disk_total_bytes) * 100",
@@ -477,7 +477,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfnhxbhcjm3uoc"
+        "uid": "dfqb93zfc9iwwd"
       },
       "fieldConfig": {
         "defaults": {
@@ -533,7 +533,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfnhxbhcjm3uoc"
+            "uid": "dfqb93zfc9iwwd"
           },
           "editorMode": "code",
           "expr": "nas_disk_avail_bytes",
