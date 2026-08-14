@@ -24,7 +24,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfqb93zfc9iwwd"
+        "uid": "dfnhxbhcjm3uoc"
       },
       "fieldConfig": {
         "defaults": {
@@ -84,7 +84,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "editorMode": "code",
           "expr": "speedtest_download_mbps",
@@ -100,7 +100,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfqb93zfc9iwwd"
+        "uid": "dfnhxbhcjm3uoc"
       },
       "fieldConfig": {
         "defaults": {
@@ -160,7 +160,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "editorMode": "code",
           "expr": "speedtest_upload_mbps",
@@ -176,7 +176,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfqb93zfc9iwwd"
+        "uid": "dfnhxbhcjm3uoc"
       },
       "fieldConfig": {
         "defaults": {
@@ -228,7 +228,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "editorMode": "code",
           "expr": "speedtest_ping_ms",
@@ -244,7 +244,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfqb93zfc9iwwd"
+        "uid": "dfnhxbhcjm3uoc"
       },
       "fieldConfig": {
         "defaults": {
@@ -330,7 +330,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "editorMode": "code",
           "expr": "speedtest_download_mbps",
@@ -342,7 +342,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "editorMode": "code",
           "expr": "speedtest_upload_mbps",
@@ -358,7 +358,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfqb93zfc9iwwd"
+        "uid": "dfnhxbhcjm3uoc"
       },
       "fieldConfig": {
         "defaults": {
@@ -407,7 +407,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "expr": "speedtest_ping_jitter_ms",
           "instant": false,
@@ -422,7 +422,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfqb93zfc9iwwd"
+        "uid": "dfnhxbhcjm3uoc"
       },
       "fieldConfig": {
         "defaults": {
@@ -471,7 +471,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "expr": "speedtest_packet_loss_ratio * 100",
           "instant": false,
@@ -486,7 +486,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfqb93zfc9iwwd"
+        "uid": "dfnhxbhcjm3uoc"
       },
       "fieldConfig": {
         "defaults": {
@@ -535,7 +535,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "expr": "speedtest_download_latency_ms",
           "instant": false,
@@ -546,7 +546,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "expr": "speedtest_upload_latency_ms",
           "instant": false,
@@ -561,7 +561,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfqb93zfc9iwwd"
+        "uid": "dfnhxbhcjm3uoc"
       },
       "fieldConfig": {
         "defaults": {
@@ -613,7 +613,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "editorMode": "code",
           "expr": "100 - (avg(irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
@@ -629,7 +629,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfqb93zfc9iwwd"
+        "uid": "dfnhxbhcjm3uoc"
       },
       "fieldConfig": {
         "defaults": {
@@ -681,7 +681,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "editorMode": "code",
           "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
@@ -697,7 +697,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfqb93zfc9iwwd"
+        "uid": "dfnhxbhcjm3uoc"
       },
       "fieldConfig": {
         "defaults": {
@@ -749,7 +749,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "editorMode": "code",
           "expr": "node_thermal_zone_temp{zone=\"0\"}",
@@ -765,7 +765,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "dfqb93zfc9iwwd"
+        "uid": "dfnhxbhcjm3uoc"
       },
       "fieldConfig": {
         "defaults": {
@@ -817,7 +817,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "dfqb93zfc9iwwd"
+            "uid": "dfnhxbhcjm3uoc"
           },
           "editorMode": "code",
           "expr": "(1 - (node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"})) * 100",
