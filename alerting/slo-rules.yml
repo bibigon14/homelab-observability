@@ -162,6 +162,18 @@ groups:
                 * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
             )
           ) / (1 - 0.999) > 6
+          and
+          (
+            1 - (
+              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[30m])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
+              /
+              sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[30m])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"}
+                + increase(kube_job_status_failed{namespace="apps"}[30m])
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
+            )
+          ) / (1 - 0.999) > 6
         for: 5m
         labels:
           severity: warning
@@ -189,6 +201,8 @@ groups:
       - alert: SLOServiceBurnRateWarning
         expr: |
           (1 - avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[6h])) / (1 - 0.999) > 6
+          and
+          (1 - avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[30m])) / (1 - 0.999) > 6
         for: 5m
         labels:
           severity: warning
