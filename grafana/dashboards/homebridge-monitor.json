@@ -94,7 +94,7 @@
           "refId": "A"
         }
       ],
-      "title": "⬇️ Download",
+      "title": "\u2b07\ufe0f Download",
       "type": "stat"
     },
     {
@@ -170,7 +170,7 @@
           "refId": "A"
         }
       ],
-      "title": "⬆️ Upload",
+      "title": "\u2b06\ufe0f Upload",
       "type": "stat"
     },
     {
@@ -238,7 +238,7 @@
           "refId": "A"
         }
       ],
-      "title": "🏓 Ping",
+      "title": "\ud83c\udfd3 Ping",
       "type": "stat"
     },
     {
@@ -352,7 +352,7 @@
           "refId": "B"
         }
       ],
-      "title": "📈 Speed History",
+      "title": "\ud83d\udcc8 Speed History",
       "type": "timeseries"
     },
     {
@@ -416,7 +416,7 @@
           "refId": "A"
         }
       ],
-      "title": "🪩 Jitter",
+      "title": "\ud83e\udea9 Jitter",
       "type": "stat"
     },
     {
@@ -480,7 +480,7 @@
           "refId": "A"
         }
       ],
-      "title": "📉 Packet Loss",
+      "title": "\ud83d\udcc9 Packet Loss",
       "type": "stat"
     },
     {
@@ -555,7 +555,7 @@
           "refId": "B"
         }
       ],
-      "title": "⚡ Loaded Latency (DL/UL)",
+      "title": "\u26a1 Loaded Latency (DL/UL)",
       "type": "stat"
     },
     {
@@ -623,7 +623,7 @@
           "refId": "A"
         }
       ],
-      "title": "🖥️ CPU",
+      "title": "\ud83d\udda5\ufe0f CPU",
       "type": "stat"
     },
     {
@@ -691,7 +691,7 @@
           "refId": "A"
         }
       ],
-      "title": "🧠 RAM",
+      "title": "\ud83e\udde0 RAM",
       "type": "stat"
     },
     {
@@ -759,7 +759,7 @@
           "refId": "A"
         }
       ],
-      "title": "🌡️ Temperature",
+      "title": "\ud83c\udf21\ufe0f Temperature",
       "type": "stat"
     },
     {
@@ -827,7 +827,7 @@
           "refId": "A"
         }
       ],
-      "title": "💾 Disk",
+      "title": "\ud83d\udcbe Disk",
       "type": "stat"
     }
   ],
@@ -858,7 +858,7 @@
     ]
   },
   "timezone": "browser",
-  "title": "🏠 Homebridge Monitor",
-  "uid": "dfqb93zfc9iwwd",
+  "title": "\ud83c\udfe0 Homebridge Monitor",
+  "uid": "ad44zbs",
   "version": 16
 }

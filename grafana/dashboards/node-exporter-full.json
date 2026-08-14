@@ -1221,7 +1221,7 @@
           "refId": "C"
         }
       ],
-      "title": "🌡️ Temperature",
+      "title": "\ud83c\udf21\ufe0f Temperature",
       "type": "timeseries"
     },
     {
@@ -1335,7 +1335,7 @@
           "refId": "B"
         }
       ],
-      "title": "📶 WireGuard Traffic",
+      "title": "\ud83d\udcf6 WireGuard Traffic",
       "type": "timeseries"
     },
     {
@@ -17093,6 +17093,6 @@
   },
   "timezone": "browser",
   "title": "Node Exporter Full",
-  "uid": "dfqb93zfc9iwwd",
+  "uid": "rYdddlPWk",
   "version": 21
 }

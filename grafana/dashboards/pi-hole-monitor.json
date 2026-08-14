@@ -85,7 +85,7 @@
           "refId": "A"
         }
       ],
-      "title": "📊 Total Queries (24h)",
+      "title": "\ud83d\udcca Total Queries (24h)",
       "type": "stat"
     },
     {
@@ -152,7 +152,7 @@
           "refId": "A"
         }
       ],
-      "title": "🛡️ Domains Blocked",
+      "title": "\ud83d\udee1\ufe0f Domains Blocked",
       "type": "stat"
     },
     {
@@ -219,7 +219,7 @@
           "refId": "A"
         }
       ],
-      "title": "👥 Active Clients",
+      "title": "\ud83d\udc65 Active Clients",
       "type": "stat"
     },
     {
@@ -287,7 +287,7 @@
           "refId": "A"
         }
       ],
-      "title": "📈 Block Rate %",
+      "title": "\ud83d\udcc8 Block Rate %",
       "type": "stat"
     },
     {
@@ -354,7 +354,7 @@
           "refId": "A"
         }
       ],
-      "title": "🚫 Blocked Queries (24h)",
+      "title": "\ud83d\udeab Blocked Queries (24h)",
       "type": "stat"
     },
     {
@@ -449,7 +449,7 @@
           "refId": "A"
         }
       ],
-      "title": "📊 Queries by Type",
+      "title": "\ud83d\udcca Queries by Type",
       "type": "barchart"
     },
     {
@@ -562,7 +562,7 @@
           "refId": "B"
         }
       ],
-      "title": "📈 Queries over time",
+      "title": "\ud83d\udcc8 Queries over time",
       "type": "timeseries"
     }
   ],
@@ -593,7 +593,7 @@
     ]
   },
   "timezone": "browser",
-  "title": "🛡️ Pi-hole Monitor",
-  "uid": "dfqb93zfc9iwwd",
+  "title": "\ud83d\udee1\ufe0f Pi-hole Monitor",
+  "uid": "adqvprz",
   "version": 33
 }
