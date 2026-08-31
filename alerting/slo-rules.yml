@@ -10,7 +10,7 @@ groups:
             sum by (owner_name) (
               increase(kube_job_status_succeeded{namespace="apps"}[7d])
               * on(job_name) group_left(owner_name)
-              kube_job_owner{namespace="apps", owner_kind="CronJob"}
+              kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"}
             )
           )
           /
@@ -18,13 +18,13 @@ groups:
             sum by (owner_name) (
               increase(kube_job_status_succeeded{namespace="apps"}[7d])
               * on(job_name) group_left(owner_name)
-              kube_job_owner{namespace="apps", owner_kind="CronJob"}
+              kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"}
             )
             +
             sum by (owner_name) (
               increase(kube_job_status_failed{namespace="apps"}[7d])
               * on(job_name) group_left(owner_name)
-              kube_job_owner{namespace="apps", owner_kind="CronJob"}
+              kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"}
             )
           )
 
@@ -120,24 +120,24 @@ groups:
           (
             1 - (
               sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[1h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"})
               /
               sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[1h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"}
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"}
                 + increase(kube_job_status_failed{namespace="apps"}[1h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"})
             )
           ) / (1 - 0.999) > 14.4
           and
           (
             1 - (
               sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[5m])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"})
               /
               sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[5m])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"}
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"}
                 + increase(kube_job_status_failed{namespace="apps"}[5m])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"})
             )
           ) / (1 - 0.999) > 14.4
         for: 2m
@@ -154,24 +154,24 @@ groups:
           (
             1 - (
               sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[6h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"})
               /
               sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[6h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"}
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"}
                 + increase(kube_job_status_failed{namespace="apps"}[6h])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"})
             )
           ) / (1 - 0.999) > 6
           and
           (
             1 - (
               sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[30m])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"})
               /
               sum by (owner_name) (increase(kube_job_status_succeeded{namespace="apps"}[30m])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"}
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"}
                 + increase(kube_job_status_failed{namespace="apps"}[30m])
-                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob"})
+                * on(job_name) group_left(owner_name) kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"})
             )
           ) / (1 - 0.999) > 6
         for: 5m
