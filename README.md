@@ -6,6 +6,10 @@ exporter, surviving an upstream API breaking change, getting cron-based
 jobs to actually run with the right permissions, and alerting on host,
 container, Kubernetes-object, external-probe, and GitOps-sync health.
 
+**Live dashboards:** rotating kiosk view of the actual running stack at [grafana.dstepanov.dev](https://grafana.dstepanov.dev/playlists/play/adhxnsb?kiosk) - no login required, read-only.
+
+**Companion repo:** [homelab-k3s](https://github.com/bibigon14/homelab-k3s) carries the workload manifests, Helm charts, and ArgoCD apps this observability stack watches.
+
 ## What's here
 
 ```
@@ -40,6 +44,23 @@ alerting/
                         Missing resources, stuck Progressing - catches
                         drift between git and cluster state, and failed
                         or stalled deployments
+  slo-rules.yml         Multi-window multi-burn-rate SLO alerts (99.9%
+                        internal availability, weaker external target)
+                        with error-budget consumption tracking - the
+                        chaos-monkey CronJob validates these end-to-end
+  thanos-alerts.yml     Thanos Compactor halt/failed-state alerts with
+                        runbook links, plus per-component down watchdogs
+                        (sidecar, store, query, compact)
+  pihole-alerts.yml     Pi-hole FTL health alerts (see the 2026-07-11
+                        SQLite deadlock postmortem for one incident
+                        these rules would have caught faster)
+  riverbot-alerts.yml   river-bot SLO alerts split into internal
+                        (99.9% target) and external USGS waterservices
+                        dependency (weaker target so external API
+                        instability doesn't burn internal budget)
+  blackbox.yml          blackbox_exporter probe configuration (not rules -
+                        config for the exporter itself, referenced by
+                        the blackbox-homelab-https scrape job)
 
 docs/
   postmortems/
@@ -47,6 +68,11 @@ docs/
                         Blameless postmortem: Pi-hole v5 -> v6 upgrade
                         silently broke the Prometheus exporter; timeline,
                         root cause, fix, and follow-ups.
+    2026-07-11-pihole-sqlite-arp-deadlock.md
+                        Blameless postmortem: Pi-hole FTL SQLite deadlock
+                        triggered by k8s CronJob-driven ARP flooding
+                        at :00 every hour - 4-min DNS blackout per hour
+                        for multiple days.
     2026-08-05-thanos-compact-checksum-cascade.md
                         Blameless postmortem: three thanos-compact
                         incidents in 16 hours, all driven by a known
@@ -58,6 +84,8 @@ docs/
                         symptoms, grep commands, correct markers for
                         each stage, manual recovery if auto-remediate
                         is disabled.
+  screenshots/          Dashboard screenshots referenced from the
+                        Dashboards section of this README.
 
 system/
   thanos-compact-remediate/
@@ -66,6 +94,9 @@ system/
                         mismatch failure modes, marks the offending
                         block, restarts the service, and posts via the
                         local telegram-bridge webhook. Rate-limited.
+  networkmanager/       NetworkManager connection profile (static IP for
+                        the Pi so *.homelab.local DNS via Pi-hole stays
+                        stable across reboots)
 
 grafana/
   dashboards/
@@ -79,12 +110,20 @@ grafana/
     node-exporter-full.json      Node Exporter: full host metrics (CPU, RAM,
                                   disk, network, temperature, systemd)
     router-asus-rt-be88u.json    Router: CPU/temp/memory/connected clients
-    pihole-monitor.json          Pi-hole: queries, blocked %, top domains
+    pi-hole-monitor.json         Pi-hole: queries, blocked %, top domains
     homebridge-monitor.json      Homebridge: device status, plugin health
     telegram-bots.json           Telegram bots: API latency, message rates
+    slo-dashboard.json           SLO error budgets and burn rates - 99.9%
+                                  internal vs weaker external target,
+                                  visualizes chaos-monkey budget consumption
+    riverbot.json                river-bot: USGS API latency, message rates,
+                                  memory footprint
+    thanos-compactor.json        Thanos Compactor: halted state, block count,
+                                  compaction/downsample duration, R2 upload
+                                  latency and errors
 
-docs/
-  screenshots/                   Dashboard screenshots for portfolio/README
+TIMELINE.md                     Rough history of how a $228 starter kit
+                                turned into a full LGTM + Thanos stack.
 ```
 
 ## Why "textfile collector" exporters?
@@ -228,7 +267,7 @@ Read-only by default (no `--repair` flag) — safe to run against a live bucket.
 
 ## Dashboards
 
-All dashboards are exported to `grafana/dashboards/` and can be imported via the Grafana API or UI. Nine dashboards covering host, container, Kubernetes, logs, networking, and application metrics:
+All dashboards are exported to `grafana/dashboards/` and can be imported via the Grafana API or UI. Twelve dashboards covering host, container, Kubernetes, logs, networking, and application metrics:
 
 ### Node Exporter - Host Metrics
 ![Node Exporter](docs/screenshots/node-1.png)
