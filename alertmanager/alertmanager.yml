@@ -1,0 +1,37 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ["alertname", "instance"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  receiver: "telegram-bridge"
+  routes:
+    # Mute known upstream bug (prometheus/prometheus#16074).
+    # Daily restart handles it; metric stays visible in Grafana.
+    # Revisit after Prometheus upgrade attempt.
+    - matchers:
+        - alertname="PrometheusCheckpointFailing"
+      receiver: "null"
+      continue: false
+
+    - match:
+        severity: critical
+      group_wait: 0s
+      receiver: "telegram-bridge"
+
+receivers:
+  - name: "telegram-bridge"
+    webhook_configs:
+      - url: "http://localhost:30119/webhook"
+        send_resolved: true
+
+  - name: "null"
+
+inhibit_rules:
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ["alertname", "instance"]
