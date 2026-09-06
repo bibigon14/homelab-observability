@@ -4,30 +4,39 @@ groups:
     interval: 1m
     rules:
       # CronJob success ratio - true 7d rolling window via increase()
+      # CronJob success ratio - 7d window using kube_job_complete condition
+      # (kube_job_status_succeeded is a per-pod gauge, not a job-level counter -
+      # increase() on it gave NaN for CronJobs running less often than daily.
+      # kube_job_complete{condition="true|false"} is the real completion signal.)
       - record: slo:cronjob:success_ratio_7d
         expr: |
           (
             sum by (owner_name) (
-              increase(kube_job_status_succeeded{namespace="apps"}[7d])
+              max_over_time(kube_job_complete{namespace="apps",condition="true"}[7d])
               * on(job_name) group_left(owner_name)
-              kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"}
+              max by (job_name, owner_name) (
+                max_over_time(
+                  kube_job_owner{namespace="apps",owner_kind="CronJob",job_name!~".*verify.*|.*-test-.*"}[7d]
+                )
+              )
             )
           )
           /
           (
             sum by (owner_name) (
-              increase(kube_job_status_succeeded{namespace="apps"}[7d])
+              (
+                max_over_time(kube_job_complete{namespace="apps",condition="true"}[7d])
+                or
+                max_over_time(kube_job_complete{namespace="apps",condition="false"}[7d])
+              )
               * on(job_name) group_left(owner_name)
-              kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"}
-            )
-            +
-            sum by (owner_name) (
-              increase(kube_job_status_failed{namespace="apps"}[7d])
-              * on(job_name) group_left(owner_name)
-              kube_job_owner{namespace="apps", owner_kind="CronJob", job_name!~".*verify.*|.*-test-.*"}
+              max by (job_name, owner_name) (
+                max_over_time(
+                  kube_job_owner{namespace="apps",owner_kind="CronJob",job_name!~".*verify.*|.*-test-.*"}[7d]
+                )
+              )
             )
           )
-
       # Service availability (per-job, 5-min window) - excludes blackbox probe jobs
       - record: slo:service:availability_5m
         expr: avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[5m])
