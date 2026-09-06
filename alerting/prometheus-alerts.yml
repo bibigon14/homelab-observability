@@ -1,0 +1,40 @@
+groups:
+  - name: prometheus-meta
+    rules:
+      - alert: PrometheusCheckpointFailing
+        expr: increase(prometheus_tsdb_checkpoint_creations_failed_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus WAL checkpoint creation failing"
+          description: |
+            Upstream bug prometheus/prometheus#16074 - checkpoint fails with
+            checksum mismatch or non-zero byte in padded page. Daily restart
+            timer masks it by clearing WAL, this alert catches recurrence
+            between restarts. Value: {{ $value }} failures in the last hour.
+          runbook_url: "https://github.com/bibigon14/homelab-observability/tree/main/system/prometheus-daily-restart"
+
+      - alert: PrometheusWALGrowthHigh
+        expr: prometheus_tsdb_wal_storage_size_bytes > 5 * 1024 * 1024 * 1024
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus WAL exceeds 5GB"
+          description: |
+            WAL size {{ $value | humanize1024 }}B. Daily restart should cap
+            at ~3GB - if this fires, restart timer may have failed or WAL
+            growth rate spiked. Check prometheus-daily-restart.timer status.
+
+      - alert: PrometheusDailyRestartMissed
+        expr: time() - prometheus_start_time_seconds > 30 * 3600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus not restarted in 30h"
+          description: |
+            Uptime {{ $value | humanizeDuration }}. Daily restart timer runs
+            at 04:00-04:15, if uptime exceeds 30h the timer likely failed.
+            Check: systemctl list-timers prometheus-daily-restart.timer
