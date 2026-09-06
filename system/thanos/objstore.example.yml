@@ -1,0 +1,6 @@
+type: S3
+config:
+  bucket: homelab-thanos
+  endpoint: <YOUR_R2_ACCOUNT_ID>.r2.cloudflarestorage.com
+  access_key: <ACCESS_KEY>
+  secret_key: <SECRET_KEY>

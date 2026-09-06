@@ -1,0 +1,17 @@
+[Unit]
+Description=Thanos Query
+After=thanos-sidecar.service thanos-store.service
+
+[Service]
+User=prometheus
+Group=prometheus
+ExecStart=/usr/local/bin/thanos query \
+  --http-address=0.0.0.0:19193 \
+  --grpc-address=0.0.0.0:10903 \
+  --endpoint=localhost:10901 \
+  --endpoint=localhost:10902
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

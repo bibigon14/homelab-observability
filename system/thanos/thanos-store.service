@@ -1,0 +1,17 @@
+[Unit]
+Description=Thanos Store Gateway
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+ExecStart=/usr/local/bin/thanos store \
+  --data-dir=/var/lib/thanos/store-cache \
+  --objstore.config-file=/etc/thanos/objstore.yml \
+  --http-address=0.0.0.0:19192 \
+  --grpc-address=0.0.0.0:10902
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

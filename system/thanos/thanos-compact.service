@@ -1,0 +1,25 @@
+[Unit]
+StartLimitIntervalSec=600
+StartLimitBurst=5
+Description=Thanos Compactor
+After=network-online.target
+
+[Service]
+TimeoutStopSec=300
+User=prometheus
+Group=prometheus
+ExecStart=/usr/local/bin/thanos compact \
+  --data-dir=/var/lib/thanos/compact \
+  --objstore.config-file=/etc/thanos/objstore.yml \
+  --http-address=0.0.0.0:19194 \
+  --wait \
+  --retention.resolution-raw=15d \
+  --retention.resolution-5m=60d \
+  --retention.resolution-1h=90d
+Restart=on-failure
+RestartSec=60s
+IOReadBandwidthMax=/dev/nvme0n1 50M
+IOWriteBandwidthMax=/dev/nvme0n1 50M
+
+[Install]
+WantedBy=multi-user.target

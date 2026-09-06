@@ -1,0 +1,19 @@
+[Unit]
+Description=Thanos Sidecar
+After=prometheus.service
+Requires=prometheus.service
+
+[Service]
+User=prometheus
+Group=prometheus
+ExecStart=/usr/local/bin/thanos sidecar \
+  --tsdb.path=/var/lib/prometheus/metrics2 \
+  --prometheus.url=http://localhost:9090 \
+  --objstore.config-file=/etc/thanos/objstore.yml \
+  --http-address=0.0.0.0:19191 \
+  --grpc-address=0.0.0.0:10901
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

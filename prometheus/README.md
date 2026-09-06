@@ -8,15 +8,15 @@ Bare-metal Prometheus for the Raspberry Pi 5 homelab.
 - **Binary**: `/opt/prometheus/prometheus`
 - **Config**: `/etc/prometheus/prometheus.yml` (this repo: `prometheus.yml`)
 - **Rules**: `/etc/prometheus/rules/*.yml` (this repo: `../alerting/`)
-- **TSDB**: `/var/lib/prometheus/metrics2` (non-default, chosen when
-  the box was set up; kept for continuity)
+- **TSDB**: `/var/lib/prometheus/metrics2` (non-default, kept for
+  continuity from the original box setup)
 - **Systemd unit**: from the Debian `prometheus` package (all its
   hardening options), with `ExecStart` overridden via drop-in to
   point at the tarball binary. Package is `apt-mark hold`ed so
   `apt upgrade` won't replace the binary.
 
-Runs alongside Thanos sidecar (`thanos-sidecar.service`) which
-ships 2h blocks to Cloudflare R2.
+Runs alongside Thanos sidecar (`../system/thanos/`) which ships
+2h blocks to Cloudflare R2.
 
 ## Why the hybrid install (apt package + tarball binary)
 
@@ -38,14 +38,21 @@ Prometheus without losing the Debian systemd hardening:
     --web.enable-admin-api
     --web.enable-lifecycle
     --storage.tsdb.path=/var/lib/prometheus/metrics2
-    --storage.tsdb.delay-compact-file.path=thanos.shipper.json
+    --storage.tsdb.delay-compact-file.path=/var/lib/prometheus/metrics2/thanos.shipper.json
 
-Note the last flag is **relative** - Prometheus resolves it
-against `--storage.tsdb.path`. Thanos sidecar uses the same
-default filename (`thanos.shipper.json`) inside its `--tsdb.path`,
-and validates that both processes agree on the path string;
-passing an absolute path here causes a mismatch error at Thanos
-startup even though both processes are pointing at the same file.
+The last flag coordinates with Thanos sidecar so Prometheus
+delays higher-level compactions until Thanos has uploaded the
+2h block to object storage. The path MUST match what Thanos
+sidecar computes internally:
+
+- Thanos 0.42+ compares path strings literally, so pass the
+  **absolute** path here (matches sidecar's `<tsdb.path>/thanos.shipper.json`).
+- Thanos 0.41 and earlier resolved both sides and compared
+  results, so a relative filename worked too.
+
+We're on 0.42.4 - absolute path is required. A relative path
+causes the sidecar to fail startup validation with a misleading
+"different paths" error.
 
 ## Prometheus 3.x migration notes (from 2.53.3)
 
@@ -106,8 +113,9 @@ in this repo first, sync to Pi, then restart.
 
 ## History
 
-- 2026-09-06: upgraded 2.53.3 -> 3.14.0 in response to WAL
-  checkpoint bug (upstream #16074) recurring every ~2h despite
-  the daily restart workaround. 3.x has TSDB read-path
-  improvements that may reduce recurrence rate; result to be
-  measured over subsequent compaction cycles.
+- 2026-09-06 08:12 PDT: upgraded 2.53.3 -> 3.14.0. Initial
+  attempt used a relative path for `delay-compact-file` because
+  Thanos 0.41 accepted it.
+- 2026-09-06 09:53 PDT: upgraded Thanos 0.41 -> 0.42.4. New
+  Thanos does literal string comparison of the path, so we had
+  to switch Prometheus to the absolute path shown above.
