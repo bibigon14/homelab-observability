@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily restart of Prometheus (04:00 PDT)
+Documentation=https://github.com/prometheus/prometheus/issues/16074
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target
