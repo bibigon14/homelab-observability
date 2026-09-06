@@ -1,0 +1,15 @@
+[Unit]
+Description=Sync homelab-observability repo from GitHub (Pi is read-only mirror)
+Documentation=https://github.com/bibigon14/homelab-observability
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bibigon88
+Group=bibigon88
+WorkingDirectory=/home/bibigon88/homelab-observability
+ExecStart=/usr/bin/git fetch --quiet origin main
+ExecStart=/usr/bin/git reset --hard --quiet origin/main
+# Не критично если сеть недоступна - следующий тик подхватит
+SuccessExitStatus=0
