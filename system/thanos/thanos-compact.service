@@ -13,6 +13,10 @@ ExecStart=/usr/local/bin/thanos compact \
   --objstore.config-file=/etc/thanos/objstore.yml \
   --http-address=0.0.0.0:19194 \
   --wait \
+  --wait-interval=1h \
+  --compact.cleanup-interval=1h \
+  --compact.progress-interval=1h \
+  --block-viewer.global.sync-block-interval=1h \
   --retention.resolution-raw=15d \
   --retention.resolution-5m=60d \
   --retention.resolution-1h=90d
