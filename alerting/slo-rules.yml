@@ -55,11 +55,7 @@ groups:
       # Target: 99.9% of samples must be below threshold
       - record: slo:probe:latency_compliance_7d
         expr: |
-          sum_over_time(
-            (probe_duration_seconds{job="blackbox-homelab-https"} < bool 3)[7d:1m]
-          )
-          /
-          count_over_time(
+          avg_over_time(
             (probe_duration_seconds{job="blackbox-homelab-https"} < bool 3)[7d:1m]
           )
 
@@ -68,14 +64,7 @@ groups:
       # A probe is "bad" if: failed OR slow (>= 3s)
       - record: slo:probe:overall_compliance_7d
         expr: |
-          sum_over_time(
-            (
-              probe_success{job="blackbox-homelab-https"}
-              * (probe_duration_seconds{job="blackbox-homelab-https"} < bool 3)
-            )[7d:1m]
-          )
-          /
-          count_over_time(
+          avg_over_time(
             (
               probe_success{job="blackbox-homelab-https"}
               * (probe_duration_seconds{job="blackbox-homelab-https"} < bool 3)
@@ -98,11 +87,7 @@ groups:
       - record: slo:service:error_budget_remaining_7d
         expr: |
           1 - (
-            (1 - (
-              sum_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[7d])
-              /
-              count_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[7d])
-            ))
+            (1 - avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[7d]))
             / (1 - 0.999)
           )
 
@@ -110,11 +95,7 @@ groups:
       - record: slo:probe:error_budget_remaining_7d
         expr: |
           1 - (
-            (1 - (
-              sum_over_time(probe_success{job="blackbox-homelab-https"}[7d])
-              /
-              count_over_time(probe_success{job="blackbox-homelab-https"}[7d])
-            ))
+            (1 - avg_over_time(probe_success{job="blackbox-homelab-https"}[7d]))
             / (1 - 0.999)
           )
 
