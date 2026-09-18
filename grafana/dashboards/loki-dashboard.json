@@ -24,20 +24,47 @@
         "current": {}
       },
       {
+        "name": "namespace",
+        "type": "query",
+        "label": "namespace",
+        "datasource": {
+          "type": "loki",
+          "uid": "${datasource}"
+        },
+        "query": {
+          "label": "namespace",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "",
+          "type": 1
+        },
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [],
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": true,
+        "refresh": 1,
+        "sort": 1,
+        "hide": 0
+      },
+      {
         "name": "pod",
         "type": "query",
         "datasource": {
           "type": "loki",
           "uid": "${datasource}"
         },
-        "query": "label_values({namespace=\"homelab\"}, pod)",
+        "query": "label_values({namespace=~\"$namespace\"}, pod)",
         "refresh": 2,
         "multi": true,
         "includeAll": true,
         "current": {
           "text": "All",
           "value": "$__all"
-        }
+        },
+        "allValue": ".+"
       },
       {
         "name": "level",
@@ -81,7 +108,7 @@
       },
       "targets": [
         {
-          "expr": "sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} [1h]))",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", pod=~\"$pod\"} [1h]))",
           "refId": "A"
         }
       ],
@@ -111,7 +138,7 @@
       },
       "targets": [
         {
-          "expr": "sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)error` [1h]))",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", pod=~\"$pod\"} |~ `(?i)error` [1h]))",
           "refId": "A"
         }
       ],
@@ -162,7 +189,7 @@
       },
       "targets": [
         {
-          "expr": "count(count by (pod) (count_over_time({namespace=\"homelab\"} [1h])))",
+          "expr": "count(count by (pod) (count_over_time({namespace=~\"$namespace\"} [1h])))",
           "refId": "A",
           "instant": true
         }
@@ -193,7 +220,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate({namespace=\"homelab\"} |~ `(?i)error` [5m]))",
+          "expr": "sum(rate({namespace=~\"$namespace\"} |~ `(?i)error` [5m]))",
           "refId": "A"
         }
       ],
@@ -241,17 +268,17 @@
       },
       "targets": [
         {
-          "expr": "sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)error` [5m]))",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", pod=~\"$pod\"} |~ `(?i)error` [5m]))",
           "legendFormat": "error",
           "refId": "A"
         },
         {
-          "expr": "sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)warn` [5m]))",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", pod=~\"$pod\"} |~ `(?i)warn` [5m]))",
           "legendFormat": "warning",
           "refId": "B"
         },
         {
-          "expr": "sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)info` [5m]))",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", pod=~\"$pod\"} |~ `(?i)info` [5m]))",
           "legendFormat": "info",
           "refId": "C"
         }
@@ -330,7 +357,7 @@
       },
       "targets": [
         {
-          "expr": "topk(15, sum(count_over_time({namespace=\"homelab\", pod=~\"$pod\"} [1h])) by (pod))",
+          "expr": "topk(15, sum(count_over_time({namespace=~\"$namespace\", pod=~\"$pod\"} [1h])) by (pod))",
           "legendFormat": "{{pod}}",
           "refId": "A",
           "instant": true
@@ -369,7 +396,7 @@
       },
       "targets": [
         {
-          "expr": "{namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)error`",
+          "expr": "{namespace=~\"$namespace\", pod=~\"$pod\"} |~ `(?i)error`",
           "refId": "A"
         }
       ],
@@ -409,7 +436,7 @@
       },
       "targets": [
         {
-          "expr": "{namespace=\"homelab\", pod=~\"$pod\"} |~ `(?i)$level`",
+          "expr": "{namespace=~\"$namespace\", pod=~\"$pod\"} |~ `(?i)$level`",
           "refId": "A"
         }
       ],
