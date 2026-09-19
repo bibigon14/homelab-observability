@@ -1,102 +1,210 @@
-# SLO dashboard shows daily gaps that trace back to a 7-day-old outage
+# A daily restart meant to work around a WAL bug was deleting an hour of data every day
 
-**Date**: 2026-09-14  
-**Duration of investigation**: ~2h  
-**Severity**: cosmetic - no data lost, no alerts missed, no SLO breach  
+**Date**: 2026-09-14 to 2026-09-17
+**Time to root cause**: ~8 hours of investigation across three days
+**Severity**: one hour of metrics lost per day, silently, for about six weeks
 **Author**: Dmitry Stepanov
 
 ## Summary
 
-The homelab SLO Error Budgets dashboard showed vertical gaps on every
-panel, once per day, at wall-clock time 03:04 PDT (10:04 UTC), lasting
-about 66 minutes. Investigation went through five hypotheses before
-landing on the correct one: a 7-minute scrape gap in `up` from Sep 8
-was propagating through the 7-day rolling window of the recording rules
-and producing empty result vectors for a slice of every subsequent day.
+Every SLO panel on the homelab Grafana dashboard had a vertical gap at the
+same wall-clock time every day: roughly 10:05 to 11:14 UTC, about 65
+minutes wide. Recording rules reported healthy. No evaluation was ever
+missed. Prometheus logged nothing unusual during the window.
 
-No data was actually lost. Prometheus rule evaluations ran on schedule.
-The rules just returned empty vectors, which Prometheus stores as
-"nothing" rather than as an error, and Grafana rendered as gaps.
+The cause was `prometheus-daily-restart.timer` - a workaround this repo
+added in August for upstream
+[prometheus#16074](https://github.com/prometheus/prometheus/issues/16074),
+a WAL checkpoint corruption bug. The bug corrupts a WAL segment during a
+checkpoint cycle. Prometheus keeps running normally afterwards. The damage
+only lands on the *next startup*, when WAL replay hits the corrupt segment
+and deletes every segment written after it.
+
+So the restart that was supposed to contain the bug was instead cashing it
+in once a day, erasing the hour of data between the corruption and the
+restart.
+
+The investigation took as long as it did because the data was present and
+queryable the entire time Prometheus was running. It only disappeared
+retroactively. Every check ran after the fact and saw a hole that had not
+existed while the window was live.
 
 ## Timeline
 
-- 08:00 PDT: Noticed gap on Service Error Budget Remaining panel
-- 08:15 PDT: First hypothesis - WAL corruption bug #16074 blocking rule eval
-- 08:20 PDT: Ruled out - checkpoint fails every 2h but gaps daily, not every 2h
-- 08:25 PDT: Second hypothesis - chaos-monkey killing pods during eval
-- 08:30 PDT: Ruled out - chaos runs hourly, gaps daily
-- 08:32 PDT: Third hypothesis - Velero backup triggering series churn
-- 08:35 PDT: Ruled out - backup runs at 03:00 UTC and takes 34 seconds
-- 08:37 PDT: Fourth hypothesis - Thanos block corruption at 7d window edge
-- 08:40 PDT: Ruled out - promtool tsdb analyze clean, all blocks intact
-- 08:45 PDT: Fifth hypothesis - Prometheus daily restart creates gap in `up`
-- 08:50 PDT: Confirmed a 7-min gap in `up{job=node}` on Sep 8 11:04-11:11 UTC
-- 08:52 PDT: Discovered journald had rotated - original cause unrecoverable
-- 08:55 PDT: Understood mechanism - rolling 7d window projects old gap forward
-- 09:01 PDT: Deployed fix (sum_over_time / count_over_time)
-- 09:03 PDT: All rules health=ok after reload
+### Day 1 - 2026-09-14
 
-## What went wrong
+- **08:00 PDT** Noticed vertical gaps on Service Error Budget Remaining
+- **08:15** Hypothesis 1: WAL corruption blocking rule evaluation. Ruled
+  out - checkpoint failures were logged every 2h, gaps were daily
+- **08:25** Hypothesis 2: chaos-monkey killing pods mid-evaluation. Ruled
+  out - chaos-monkey runs hourly, gaps were daily
+- **08:32** Hypothesis 3: Velero backup causing series churn. Ruled out -
+  the backup runs at 03:00 UTC and finishes in 34 seconds
+- **08:37** Hypothesis 4: corrupted Thanos block at the 7d window edge.
+  Ruled out - `promtool tsdb analyze` came back clean on every block
+- **08:45** Hypothesis 5: a 7-minute gap in `up{job=node}` on Sep 8,
+  projected forward daily by the 7d rolling window
+- **09:01** Deployed a fix for hypothesis 5: rewrote four recording rules
+  from `avg_over_time(X[7d])` to `sum_over_time(X[7d]) / count_over_time(X[7d])`
+- **09:03** All rules healthy after reload. Wrote the first version of this
+  postmortem describing hypothesis 5 as the root cause
 
-Recording rule `slo:service:error_budget_remaining_7d` used this expression:
+### Day 2 - 2026-09-15
 
-~~~promql
-1 - ((1 - avg_over_time(up{...}[7d])) / (1 - 0.999))
-~~~
+- **13:09** The gap appeared again, same window, 64 minutes. The fix had
+  done nothing
+- **13:20** Hypothesis 6: the recording rules were only deployed on Sep 8,
+  so the 7d window had never held a full week of data. Appeared to be
+  confirmed by an `absent()` check returning zero
+- **13:30** That confirmation was a measurement error - the check covered a
+  window *after* the daily gap, not during it
+- **13:30 to 17:30** Four more hours. Ruled out cadvisor series churn,
+  kubelet garbage collection, CPU and IO contention (both under 1%), rule
+  evaluation latency (p99 under 200ms), ArgoCD sync, and Velero
+- **17:30** One correlation survived everything: the gap appeared on days
+  the restart timer fired and not on 2026-09-11, the only day in the week
+  without a restart. But the restart happened at the *end* of the gap, an
+  hour after it started, so it looked like the thing that fixed the gap
+  rather than the thing that caused it
+- **17:32** Reverted the recording rule change - it had been neutral
+- **17:40** Switched journald to persistent storage. Until then it was
+  volatile on tmpfs and rotated every 3-4 days, so every attempt to read
+  logs from the gap window came back empty
 
-Under a specific set of conditions on Prometheus 3.14 (needs upstream
-investigation), `avg_over_time` over a 7d window returned an empty
-vector when the underlying series had certain kinds of gaps 7 days back.
-The empty result:
+### Day 3 - 2026-09-16
 
-- Was accepted silently by Prometheus (no error, no failure counter)
-- Left `prometheus_rule_group_iterations_missed_total` at zero
-- Left rule `health` at `ok`
-- Produced zero samples in TSDB for the affected evaluation cycles
+- **10:14** With persistent logs available, pulled the full restart
+  sequence and found it:
 
-The underlying gap in `up` was 7 minutes long. The visible gap in the
-SLO dashboard was ~66 minutes long, because the 7d rolling window kept
-catching the same 7-min hole for every evaluation across that hour.
+      level=WARN msg="Encountered WAL read error, attempting repair"
+                err="corruption in segment 00000072 at 33177751"
+      level=WARN msg="Starting corruption repair" segment=72
+      level=WARN msg="Deleting all segments newer than corrupted segment" segment=72
+      level=INFO msg="Successfully repaired WAL"
 
-## Why it took 2 hours
+  `maxSegment` was 83. Segment 72 was corrupt. Segments 73 through 83 were
+  deleted - about an hour of data, erased at restart time
+- **20:43** Wiped WAL and chunks_head, disabled the restart timer
+- **22:11** Found that thanos-sidecar had been dead for 90 minutes: it has
+  `Requires=prometheus.service`, so stopping Prometheus stopped it, but
+  starting Prometheus did not bring it back. Added a drop-in with
+  `Wants=thanos-sidecar.service`
 
-Five wrong hypotheses in a row, each one plausible given prior context
-of the homelab. The right diagnosis needed:
+### Day 4 - 2026-09-17
 
-1. Checking `absent()` over the full 7d window, not just recent hours
-2. Comparing timing of gaps against systemd timer schedule
-3. Cross-referencing recording rule health metrics with actual TSDB
-   sample writes (they disagreed)
-4. Running the rule expression manually with `@time` modifier at
-   the exact gap timestamp to compare with what the rule produced
+- **09:36** Two checkpoints in a row completed successfully on the fresh
+  WAL - 02:00 and 06:00 UTC, no corruption. WAL truncation working,
+  segments 0 through 3 usefully reclaimed. Zero gap minutes overnight
 
-Journald had rotated (default volatile storage on `/run` tmpfs), so
-logs from 6 days ago were unrecoverable. Made root-cause of the
-original 7-min scrape gap impossible to determine.
+## The mechanism
+
+The confusing part is the ordering. Written out:
+
+1. A checkpoint cycle corrupts a WAL segment (upstream bug #16074)
+2. Prometheus carries on. Rule evaluations fire on schedule.
+   `prometheus_rule_group_last_evaluation_samples` reports 39 samples per
+   minute for the SLO group. `prometheus_tsdb_head_samples_appended_total`
+   climbs normally. Every query against the live instance returns data
+3. The restart timer fires
+4. WAL replay hits the corrupt segment, deletes everything after it, and
+   reports success
+5. The data written between steps 1 and 3 is gone
+
+From the outside this looks like a gap that starts an hour before the
+restart and ends exactly at it. It never looked like the restart caused it,
+because the restart appeared to be the moment things got better.
+
+## Why it took three days
+
+**The evidence contradicted itself, and both halves were true.**
+
+- Rule health: `ok`
+- `prometheus_rule_group_iterations_missed_total`: 0
+- `prometheus_rule_group_last_evaluation_samples`: 39, every minute,
+  through the entire window
+- `absent(slo:service:error_budget_remaining_7d)`: 1, for the same minutes
+
+Both were correct. The rules did produce 39 samples per minute. Those
+samples did get written. They were deleted later.
+
+**Every measurement was taken after the fact.** A probe running *during*
+the window would have shown the data present and closed this on day one.
+That check was never run, because there was no reason to think data that
+exists now might not exist later.
+
+**Logs were unavailable exactly where they mattered.** journald was on
+volatile storage with a 3-4 day retention. Every attempt to read the gap
+window returned `-- No entries --`. The decisive log line was in the
+restart sequence the whole time.
+
+**The restart timer was never a suspect.** It was installed in August as
+the fix for this class of problem, documented, and mentally filed as part
+of the solution. Six hypotheses went by before anything pointed at it, and
+even then the timing looked backwards.
+
+**A plausible fix shipped on day one.** Rewriting `avg_over_time` as
+`sum_over_time / count_over_time` was defensible, passed `promtool check`,
+and deployed cleanly. It changed nothing, because the rules were never the
+problem. It also anchored the next day's thinking on the rules.
 
 ## Fix
 
-Replaced `avg_over_time(X[7d])` with `sum_over_time(X[7d]) / count_over_time(X[7d])`
-in four recording rules. Mathematically equivalent when data is present.
-Stays defined when it isn't.
+- `prometheus-daily-restart.timer` disabled
+- WAL and chunks_head wiped clean, backups kept as `*.old-20260916`
+- Drop-in adds `Wants=thanos-sidecar.service` to `prometheus.service` so
+  the dependency works in both directions
+- Recording rule change from day 1 reverted - it was neutral
 
-Alert rules with shorter windows (5m to 6h) kept as `avg_over_time`
-because absence in a short window means a real outage, not a
-rolling-window artifact.
+Two checkpoints have since completed successfully on the fresh WAL with no
+corruption, and WAL truncation is reclaiming segments. The corruption
+appears to have been a property of the accumulated WAL rather than
+something that reproduces on a clean one.
+
+## This is a trade-off, not a resolution
+
+The restart timer existed for a reason. From the original notes in
+`system/prometheus-daily-restart/README.md`:
+
+- 2026-08-14: WAL corruption incident produced a 24GB WAL and a 97.5%
+  checkpoint failure rate over a month
+- 2026-09-06: weekly restart was not enough - WAL grew ~135MB/h, about
+  22GB/week, back into the range where corruption got bad
+
+Current growth on the clean WAL is roughly 20MB/h with truncation working,
+which is a different regime entirely. But if the corruption comes back and
+truncation stops, the WAL will climb again and something will have to give.
+
+Being watched:
+
+- whether checkpoints keep succeeding
+- `du -sh /var/lib/prometheus/metrics2/wal`
+- `systemctl show prometheus --property=MemoryCurrent`
+
+If the WAL climbs past a few GB the options are upgrading Prometheus to a
+release where #16074 is closed, or a restart cadence between daily and
+weekly - accepting the data loss, just less often. Re-enabling the daily
+timer restores the daily gap.
 
 ## What to do differently
 
-**Immediate**: enable persistent journald storage (`Storage=persistent`
-in `/etc/systemd/journald.conf`) so next time a downtime happens we
-can trace the cause instead of guessing.
+**Probe during the incident window, not after it.** Two days of this
+investigation were spent querying a window that had already been rewritten.
+A cron job hitting `/api/v1/query` every five minutes during the window
+would have shown the data present and pointed straight at the restart.
 
-**Medium term**: add a Prometheus alert on `absent()` of the SLO
-recording rules themselves. If the rule stops writing samples, the
-dashboard hides the problem instead of surfacing it. An explicit
-`absent()` alert would have surfaced this within an hour of the
-first missed evaluation instead of a week later.
+**Persistent logs are not optional on a box you investigate.** Default
+journald on this Pi was volatile, on tmpfs, rotating every few days. The
+decisive log line was available for about four days after each restart and
+nobody read it in time. Now fixed:
+`Storage=persistent`, `SystemMaxUse=1G`, `MaxRetentionSec=30days`.
 
-**Long term**: consider moving 7d SLO computation to Thanos Ruler
-against store gateway data. Rolling windows over local head data are
-fragile to short scrape gaps. Rolling windows over compacted blocks
-in object storage are not.
+**Workarounds deserve the same scrutiny as the bugs they paper over.** This
+one was installed, documented, and then treated as settled infrastructure.
+It was the last thing anyone suspected, and it was the answer. A workaround
+that runs on a timer and mutates state should carry an explicit note about
+what it costs when it fires.
+
+**A fix that does not change the symptom is information.** The recording
+rule rewrite on day 1 was reverted on day 2, but the day it spent deployed
+without changing anything should have been treated as evidence against the
+whole rule-level theory sooner than it was.
