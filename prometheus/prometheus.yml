@@ -156,3 +156,28 @@ scrape_configs:
   - job_name: 'demo-app'
     static_configs:
       - targets: ['localhost:30130']
+
+  - job_name: 'chaos-scheduler-operator'
+    static_configs:
+      - targets: ['192.168.50.212:30190']
+        labels:
+          app: 'chaos-scheduler-operator'
+
+  - job_name: 'ebpf-observer'
+    static_configs:
+      - targets: ['10.0.0.4:9100']
+        labels:
+          app: 'ebpf-tcp-observer'
+          instance: 'oci-sanjose'
+          transport: 'wireguard'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+  - job_name: traffic-gen
+    scrape_interval: 15s
+    static_configs:
+      - targets: [10.0.0.4:9102]
+        labels:
+          app: traffic-gen
+          instance: oci-sanjose
+          transport: wireguard
