@@ -1,0 +1,8 @@
+[Unit]
+Description=Daily restart of Prometheus to work around WAL checkpoint bug
+Documentation=https://github.com/prometheus/prometheus/issues/16074
+After=prometheus.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl restart prometheus.service
