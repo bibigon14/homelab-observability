@@ -1,0 +1,35 @@
+[Unit]
+Description=Prometheus Server (HA replica B, OCI arm64)
+Documentation=https://prometheus.io/docs/prometheus/latest/
+After=network-online.target wg-quick@wg0.service
+Wants=network-online.target wg-quick@wg0.service
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+ExecStart=/opt/prometheus/prometheus \
+  --config.file=/etc/prometheus/prometheus.yml \
+  --storage.tsdb.path=/var/lib/prometheus/metrics2 \
+  --storage.tsdb.retention.time=15d \
+  --web.console.templates=/etc/prometheus/consoles \
+  --web.console.libraries=/etc/prometheus/console_libraries \
+  --web.listen-address=0.0.0.0:9090 \
+  --web.enable-lifecycle \
+  --web.enable-admin-api \
+  --storage.tsdb.delay-compact-file.path=/var/lib/prometheus/metrics2/thanos.shipper.json
+
+Restart=on-failure
+RestartSec=5s
+
+# Give Prometheus time to flush head on graceful shutdown.
+# Head flush is what preserves current samples across restart (WAL alone is
+# not enough when checkpoint has been failing due to upstream bug #16074).
+TimeoutStopSec=300
+
+# Sidecar dependency is bidirectional so a Prometheus restart brings
+# Thanos back up automatically.
+Wants=thanos-sidecar.service
+
+[Install]
+WantedBy=multi-user.target

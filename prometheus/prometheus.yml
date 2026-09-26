@@ -10,6 +10,7 @@ global:
   external_labels:
       monitor: 'homebridge'
       location: 'home'
+      replica: 'a'         # NEW
 # Alertmanager configuration
 alerting:
   alertmanagers:
@@ -159,7 +160,7 @@ scrape_configs:
 
   - job_name: 'chaos-scheduler-operator'
     static_configs:
-      - targets: ['192.168.50.212:30190']
+      - targets: ['localhost:30190']
         labels:
           app: 'chaos-scheduler-operator'
 
