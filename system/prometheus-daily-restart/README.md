@@ -84,3 +84,32 @@ If the WAL climbs past a few GB, the options are a Prometheus upgrade
 to a release where #16074 is fixed, or a restart cadence somewhere
 between daily and weekly - accepting the data loss but less often.
 Re-enabling the daily timer restores the daily gap.
+
+## 2026-09-25: re-enabled under HA pair
+
+The observation window opened on 2026-09-16 closed 9 days later
+with the predicted result: the fresh WAL developed the same
+corruption pattern within 24h and by day 8 had 7.1 GB of
+untruncated segments. Restarting reclaimed the disk but at the
+cost of another retroactive gap.
+
+Two changes today make the timer safe again:
+
+1. An HA replica on OCI Ampere A1 (replica: 'b') scrapes the same
+   targets and ships to the same Thanos R2 bucket. When either
+   replica has a restart-induced gap, Thanos Query dedups from the
+   other. See `docs/decisions/2026-09-25-ha-prometheus-oci-replica.md`.
+
+2. OCI has its own daily restart timer in
+   `system/prometheus-oci/prometheus-daily-restart.timer`, offset
+   12h from Pi's (Pi 04:00 PDT / OCI 16:00 PDT). The pair is never
+   restarting at the same instant.
+
+Trade-off is now reversed:
+- Before HA: restart cost (65 min retroactive gap) > bug cost
+  (WAL growth to OOM)
+- After HA: restart cost (invisible to consumers) < bug cost
+  (still WAL growth to OOM)
+
+So the timer is enabled again on both replicas. If prometheus 3.15+
+ships a fix for #16074, the timers can be removed entirely.
