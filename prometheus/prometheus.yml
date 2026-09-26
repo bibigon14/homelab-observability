@@ -10,7 +10,7 @@ global:
   external_labels:
       monitor: 'homebridge'
       location: 'home'
-      replica: 'a'         # NEW
+      replica: 'a'
 # Alertmanager configuration
 alerting:
   alertmanagers:
