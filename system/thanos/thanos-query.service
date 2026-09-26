@@ -9,7 +9,10 @@ ExecStart=/usr/local/bin/thanos query \
   --http-address=0.0.0.0:19193 \
   --grpc-address=0.0.0.0:10903 \
   --endpoint=localhost:10901 \
-  --endpoint=localhost:10902
+  --endpoint=localhost:10902 \
+  --endpoint=10.0.0.4:10901 \
+  --query.replica-label=replica \
+  --query.auto-downsampling
 Restart=on-failure
 RestartSec=5s
 
