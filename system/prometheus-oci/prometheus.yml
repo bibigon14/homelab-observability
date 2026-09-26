@@ -1,0 +1,250 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: homebridge
+    location: home
+    replica: b
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      - 10.0.0.1:9093
+rule_files:
+- rules/pihole-alerts.yml
+- rules/slo-rules.yml
+- alerts.yml
+- rules/cadvisor-alerts.yml
+- rules/k3s-alerts.yml
+- rules/blackbox-alerts.yml
+- rules/argocd-alerts.yml
+- rules/thanos-alerts.yml
+- rules/riverbot-alerts.yml
+- rules/prometheus-alerts.yml
+scrape_configs:
+- job_name: prometheus
+  scrape_interval: 5s
+  scrape_timeout: 5s
+  static_configs:
+  - targets:
+    - 10.0.0.1:9090
+  - targets:
+    - 10.0.0.4:9090
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: cadvisor
+  static_configs:
+  - targets:
+    - 10.0.0.1:8080
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: kube-state-metrics
+  static_configs:
+  - targets:
+    - 10.0.0.1:30809
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: node
+  static_configs:
+  - targets:
+    - 10.0.0.1:9100
+    labels:
+      instance: Raspberry Pi 5
+- job_name: pihole
+  static_configs:
+  - targets:
+    - 10.0.0.1:9666
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: bridge
+  static_configs:
+  - targets:
+    - 10.0.0.1:30119
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: wc2026bot
+  static_configs:
+  - targets:
+    - 10.0.0.1:30120
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: riverbot
+  static_configs:
+  - targets:
+    - 10.0.0.1:30121
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: blackbox-homelab-https
+  metrics_path: /probe
+  params:
+    module:
+    - https_homelab
+  static_configs:
+  - targets:
+    - https://argocd.homelab.local
+    - https://grafana.homelab.local
+    - https://uptime.homelab.local
+    - https://homebridge.homelab.local
+    - https://influxdb.homelab.local
+    - https://pihole.homelab.local
+    - https://cadvisor.homelab.local
+  relabel_configs:
+  - source_labels:
+    - __address__
+    target_label: __param_target
+  - source_labels:
+    - __param_target
+    target_label: instance
+  - target_label: __address__
+    replacement: 10.0.0.1:9115
+- job_name: blackbox-external-http
+  metrics_path: /probe
+  params:
+    module:
+    - http_2xx
+  relabel_configs:
+  - source_labels:
+    - __address__
+    target_label: __param_target
+  - source_labels:
+    - __param_target
+    target_label: instance
+  - target_label: __address__
+    replacement: 10.0.0.1:9115
+  static_configs:
+  - targets:
+    - https://waterservices.usgs.gov/nwis/iv/?sites=11446500&parameterCd=00060&format=json&period=PT1H
+    labels:
+      river: american_river
+  - targets:
+    - https://waterservices.usgs.gov/nwis/iv/?sites=11447650&parameterCd=00060&format=json&period=PT1H
+    labels:
+      river: sacramento_river
+- job_name: thanos-sidecar
+  static_configs:
+  - targets:
+    - 10.0.0.1:19191
+  - targets:
+    - 10.0.0.4:19191
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: thanos-store
+  static_configs:
+  - targets:
+    - 10.0.0.1:19192
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: thanos-query
+  static_configs:
+  - targets:
+    - 10.0.0.1:19193
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: thanos-compact
+  static_configs:
+  - targets:
+    - 10.0.0.1:19194
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: blackbox-dns-homelab
+  metrics_path: /probe
+  params:
+    module:
+    - dns_pihole_homelab
+  static_configs:
+  - targets:
+    - 10.0.0.1:53
+  relabel_configs:
+  - source_labels:
+    - __address__
+    target_label: __param_target
+  - source_labels:
+    - __param_target
+    target_label: instance
+  - target_label: __address__
+    replacement: 10.0.0.1:9115
+- job_name: demo-app
+  static_configs:
+  - targets:
+    - 10.0.0.1:30130
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: chaos-scheduler-operator
+  static_configs:
+  - targets:
+    - 10.0.0.1:30190
+    labels:
+      app: chaos-scheduler-operator
+  relabel_configs:
+  - source_labels:
+    - __address__
+    regex: 10\.0\.0\.1:(.+)
+    target_label: instance
+    replacement: localhost:${1}
+- job_name: ebpf-observer
+  static_configs:
+  - targets:
+    - 10.0.0.4:9100
+    labels:
+      app: ebpf-tcp-observer
+      instance: oci-sanjose
+      transport: wireguard
+  scrape_interval: 15s
+  scrape_timeout: 10s
+- job_name: traffic-gen
+  scrape_interval: 15s
+  static_configs:
+  - targets:
+    - 10.0.0.4:9102
+    labels:
+      app: traffic-gen
+      instance: oci-sanjose
+      transport: wireguard
