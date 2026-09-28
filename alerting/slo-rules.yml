@@ -39,7 +39,7 @@ groups:
           )
       # Service availability (per-job, 5-min window) - excludes blackbox probe jobs
       - record: slo:service:availability_5m
-        expr: avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[5m])
+        expr: avg by (job, instance) (avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*",replica_target=""}[5m]))
 
       # ── Probe SLIs ──────────────────────────────────────────────
 
@@ -87,7 +87,7 @@ groups:
       - record: slo:service:error_budget_remaining_7d
         expr: |
           1 - (
-            (1 - avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*"}[7d]))
+            (1 - avg by (job, instance) (avg_over_time(up{job!="thanos-compact",job!~"blackbox-.*",replica_target=""}[7d])))
             / (1 - 0.999)
           )
 
