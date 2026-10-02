@@ -1,0 +1,56 @@
+groups:
+  - name: thanos-alerts
+    rules:
+      - alert: ThanosCompactHalted
+        expr: thanos_compact_halted{job="thanos-compact"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Thanos Compactor has halted"
+          description: "thanos-compact hit an unrecoverable error (commonly an R2 block checksum mismatch) and stopped all future compaction/downsampling. The process stays up and reports healthy to systemd - check journalctl for \"critical error detected; halting\" and the corrupted block ULID. See homelab-observability README's Thanos Compactor section for the recovery runbook."
+
+      - alert: ThanosCompactFailed
+        expr: node_systemd_unit_state{name="thanos-compact.service", state="failed"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Thanos Compactor has hit StartLimitBurst and stopped restarting"
+          description: "thanos-compact.service crash-looped past its restart limit (5 restarts / 600s) and systemd gave up. Manual intervention required: find the corrupted block in the logs, mark it, then `systemctl reset-failed thanos-compact` before restarting."
+
+      - alert: ThanosCompactDown
+        expr: up{job="thanos-compact"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Thanos Compactor target unreachable"
+          description: "Prometheus cannot scrape thanos-compact on localhost:19194 for over 10 minutes."
+
+      - alert: ThanosSidecarDown
+        expr: up{job="thanos-sidecar"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Thanos Sidecar target unreachable"
+          description: "Prometheus cannot scrape thanos-sidecar for over 5 minutes - Prometheus blocks are not being shipped to R2."
+
+      - alert: ThanosStoreDown
+        expr: up{job="thanos-store"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Thanos Store Gateway target unreachable"
+          description: "Prometheus cannot scrape thanos-store for over 5 minutes - long-term historical queries in Grafana will fail or return partial data."
+
+      - alert: ThanosQueryDown
+        expr: up{job="thanos-query"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Thanos Query target unreachable"
+          description: "Prometheus cannot scrape thanos-query for over 5 minutes - Grafana's Thanos datasource will fail."

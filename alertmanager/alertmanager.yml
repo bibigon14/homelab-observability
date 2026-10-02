@@ -8,6 +8,15 @@ route:
   repeat_interval: 1h
   receiver: "telegram-bridge"
   routes:
+    # External-dependency SLO (USGS). We own the probe, not the upstream API -
+    # visible in Grafana, not pageable. SLOProbeExternalBurnRateWarning is
+    # already multi-window + weaker 99% target, this just prevents the
+    # Telegram noise when USGS has a hiccup.
+    - matchers:
+        - slo="probe_external"
+      receiver: "null"
+      continue: false
+
     # Mute known upstream bug (prometheus/prometheus#16074).
     # Daily restart handles it; metric stays visible in Grafana.
     # Revisit after Prometheus upgrade attempt.
