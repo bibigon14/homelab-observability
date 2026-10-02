@@ -7,7 +7,7 @@ modules:
       valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
       valid_status_codes: [200, 301, 302, 307, 308, 401, 403]
       tls_config:
-        insecure_skip_verify: true
+        ca_file: /etc/blackbox_exporter/homelab-ca.crt
       preferred_ip_protocol: "ip4"
 
   http_2xx:
