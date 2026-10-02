@@ -1,0 +1,21 @@
+groups:
+  - name: riverbot-alerts
+    rules:
+      # ── External USGS API burn-rate (99%, 7d) ──
+      # External dependency SLO is intentionally weaker (99% vs internal 99.9%)
+      # and warning-only - USGS outages are not our on-call responsibility.
+      # Multi-window (6h AND 30m) filters transient blips.
+      - alert: SLOProbeExternalBurnRateWarning
+        expr: |
+          (1 - avg_over_time(probe_success{job="blackbox-external-http"}[6h])) / (1 - 0.99) > 6
+          and
+          (1 - avg_over_time(probe_success{job="blackbox-external-http"}[30m])) / (1 - 0.99) > 6
+        for: 15m
+        labels:
+          severity: warning
+          slo: probe_external
+          slo_target: "99"
+          location: home
+        annotations:
+          summary: "External probe {{ $labels.river }} burning availability budget 6x faster than normal"
+          description: "USGS API for {{ $labels.river }} degraded. 7-day 99% external SLO budget will be exhausted in under 6 hours if this continues. Not our responsibility, no immediate action required."

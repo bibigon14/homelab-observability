@@ -1,0 +1,47 @@
+groups:
+  - name: argocd-alerts
+    rules:
+      - alert: ArgoCDAppOutOfSync
+        expr: argocd_app_info{sync_status!="Synced"} == 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ArgoCD app {{ $labels.name }} is OutOfSync"
+          description: "Application {{ $labels.name }} has been out of sync for over 10 minutes. Either a manual change was made in-cluster, or the sync failed."
+
+      - alert: ArgoCDAppDegraded
+        expr: argocd_app_info{health_status="Degraded"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ArgoCD app {{ $labels.name }} is Degraded"
+          description: "Application {{ $labels.name }} has been in Degraded health for over 5 minutes."
+
+      - alert: ArgoCDAppMissing
+        expr: argocd_app_info{health_status="Missing"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ArgoCD app {{ $labels.name }} resources missing"
+          description: "Application {{ $labels.name }} reports Missing health — expected resources are not present in the cluster."
+
+      - alert: ArgoCDAppSyncStuckProgressing
+        expr: argocd_app_info{health_status="Progressing"} == 1
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ArgoCD app {{ $labels.name }} stuck Progressing"
+          description: "Application {{ $labels.name }} has been Progressing for over 30 minutes — sync may be stuck."
+
+      - alert: ArgoCDMetricsTargetDown
+        expr: up{job="argocd"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ArgoCD metrics endpoint unreachable"
+          description: "Prometheus cannot scrape argocd-metrics on homebridge for over 5 minutes — GitOps sync health is blind."
