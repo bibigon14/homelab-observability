@@ -135,6 +135,30 @@ else
         DETAILS_LINE=$(echo "$RECENT_LOG" \
             | grep -oE "cannot populate chunk [0-9]+ from block [0-9A-Z]{26}: checksum mismatch expected:[0-9a-fx]+, actual:[0-9a-fx]+" \
             | tail -1 || true)
+    else
+        # Fallback for Thanos 0.42+ error format: block ID no longer appears in
+        # the error line itself (e.g. "input block index not valid: read series:
+        # invalid checksum"). Recover it from the preceding "downloaded block
+        # id=XXX" line emitted by downsample.go / compact.go before the crash.
+        ERR_LINE_NUM=$(echo "$RECENT_LOG" \
+            | grep -nE "input block index not valid|invalid checksum|read series" \
+            | head -1 | cut -d: -f1 || true)
+        if [ -n "$ERR_LINE_NUM" ]; then
+            BLOCK_ID=$(echo "$RECENT_LOG" | head -n "$ERR_LINE_NUM" \
+                | grep -oE 'msg="downloaded block" id=[0-9A-Z]{26}' \
+                | tail -1 | grep -oE "[0-9A-Z]{26}" || true)
+            if [ -n "$BLOCK_ID" ]; then
+                ERR_LINE=$(echo "$RECENT_LOG" | sed -n "${ERR_LINE_NUM}p")
+                if echo "$ERR_LINE" | grep -qiE "downsampling|downsample"; then
+                    MARKER="no-downsample-mark.json"
+                else
+                    MARKER="no-compact-mark.json"
+                fi
+                DETAILS_LINE=$(echo "$ERR_LINE" \
+                    | grep -oE "(first pass of downsampling failed[^\"]*|input block index not valid[^\"]*)" \
+                    | head -1 || true)
+            fi
+        fi
     fi
 fi
 
