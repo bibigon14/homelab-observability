@@ -17,8 +17,14 @@ Every 2 minutes, a systemd timer runs a bash script that:
 2. If so, parses the offending block ULID from
    `journalctl -u thanos-compact` and picks the correct marker
    based on the stage that failed:
-   - `downsample block <ULID>` → `no-downsample-mark.json`
-   - `from block <ULID>` → `no-compact-mark.json`
+   - `downsample block <ULID>` → `no-downsample-mark.json` (Thanos ≤0.41)
+   - `from block <ULID>` → `no-compact-mark.json` (Thanos ≤0.41)
+   - `input block index not valid: read series: invalid checksum`
+     (Thanos ≥0.42) → block ID is no longer in the error line, so
+     the script walks back to the preceding `msg="downloaded block"
+     id=<ULID>` line and picks the marker from the stage word in the
+     error (`downsampling` / `downsample` → downsample marker,
+     otherwise compact marker).
 3. Marks the block with `thanos tools bucket mark`.
 4. Restarts the service. Uses `SIGKILL` for the halted-process case
    because `SIGTERM` hangs indefinitely in that state.
