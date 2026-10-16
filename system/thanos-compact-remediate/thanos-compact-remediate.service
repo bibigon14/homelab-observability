@@ -1,6 +1,6 @@
 [Unit]
 Description=Thanos Compact auto-remediation
-Documentation=file:///opt/homelab-observability/docs/runbooks/thanos-compact.md
+Documentation=https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md
 
 [Service]
 Type=oneshot
