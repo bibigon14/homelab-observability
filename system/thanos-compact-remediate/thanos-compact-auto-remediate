@@ -87,8 +87,18 @@ elif systemctl is-active --quiet "$SERVICE"; then
         LAST_FILE="$STATE_DIR/last_downsample_failures"
         LAST=$(cat "$LAST_FILE" 2>/dev/null || echo 0)
         if [ "$FAILS" -gt "$LAST" ]; then
-            NEEDS=1; TRIGGER="downsample_fail"
-            REASON="downsample_failures_total: ${LAST} -> ${FAILS}"
+            # Guard against transient errors (context canceled, timeout, network).
+            # Only trigger remediation when a checksum-shaped error actually
+            # appeared in the last tick, otherwise the counter increment is
+            # usually a retriable download failure that Thanos recovers from.
+            RECENT_ERR=$(journalctl -u "$SERVICE" --since "5 min ago" --no-pager 2>/dev/null \
+                | grep -E "level=error|retriable error" | tail -5)
+            if echo "$RECENT_ERR" | grep -qiE "checksum|invalid|corrupt|gather index"; then
+                NEEDS=1; TRIGGER="downsample_fail"
+                REASON="downsample_failures_total: ${LAST} -> ${FAILS}"
+            else
+                log "downsample_failures_total: ${LAST} -> ${FAILS} but no checksum error in recent logs (likely transient); skipping remediation"
+            fi
         fi
         echo "$FAILS" > "$LAST_FILE"
     fi
