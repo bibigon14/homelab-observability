@@ -159,11 +159,34 @@ else
                     | head -1 || true)
             fi
         fi
+
+        # Fallback for Thanos 0.42+ compact-stage: when compactor reads a
+        # block from local disk (sidecar/store synced it there, no fresh
+        # download), there is no preceding "downloaded block id=X" line to
+        # walk back to. The block ULID is instead embedded in the local
+        # filesystem path within the error itself, e.g.:
+        #   "gather index issues for block /var/lib/thanos/compact/compact/0@GROUP/<ULID>: read series: invalid checksum"
+        # Extract it from there. compact-stage errors never say "downsample"
+        # in this wording, so marker is always no-compact-mark.json.
+        if [ -z "$BLOCK_ID" ]; then
+            BLOCK_ID=$(echo "$RECENT_LOG" \
+                | grep -oE "block /[^ ]+/[0-9A-Z]{26}:" \
+                | head -1 | grep -oE "[0-9A-Z]{26}" || true)
+            if [ -n "$BLOCK_ID" ]; then
+                MARKER="no-compact-mark.json"
+                DETAILS_LINE=$(echo "$RECENT_LOG" \
+                    | grep -oE "gather index issues[^\\\\]*invalid checksum" \
+                    | head -1 || true)
+            fi
+        fi
     fi
 fi
 
-if [ -z "$BLOCK_ID" ] || [ -z "$MARKER" ]; then
-    log "cannot identify block/stage from logs"
+# Validate: BLOCK_ID must be a 26-char ULID (uppercase alphanumeric), not
+# a line number or other garbage leaked from an upstream parsing step.
+if [ -z "$BLOCK_ID" ] || [ -z "$MARKER" ] \
+   || ! echo "$BLOCK_ID" | grep -qE "^[0-9A-Z]{26}$"; then
+    log "cannot identify valid block ULID / stage from logs"
     send_alert "ThanosAutoRemediateGaveUp" "critical" \
         "Cannot identify block/stage" \
         "Trigger: ${TRIGGER}. Reason: ${REASON}. Manual investigation required."
