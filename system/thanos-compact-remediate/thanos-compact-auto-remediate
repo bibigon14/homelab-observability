@@ -27,15 +27,48 @@ THANOS_BIN="/usr/local/bin/thanos"
 STATE_DIR="/var/lib/thanos-remediate"
 BRIDGE_URL="http://localhost:30119/webhook"
 MAX_ACTIONS_PER_HOUR=5
+TEXTFILE_PATH="/var/lib/prometheus/node-exporter/thanos-remediate.prom"
+RUNBOOK_BASE="https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md"
 
 mkdir -p "$STATE_DIR"
 
 log() { logger -t thanos-remediate -- "$*"; echo "[$(date -u +%FT%TZ)] $*" >&2; }
 
+# Write cumulative counter to node_exporter textfile collector.
+# Atomic via tmp+mv. result label values:
+#   not_needed, succeeded, gave_up, rate_limited, mark_failed,
+#   service_down, transient_skipped
+# Keeps running totals in STATE_DIR; written on every exit path.
+write_textfile_metric() {
+    local result="$1"
+    local counter_file="$STATE_DIR/result_${result}"
+    local current
+    current=$(cat "$counter_file" 2>/dev/null || echo 0)
+    current=$((current + 1))
+    echo "$current" > "$counter_file"
+    {
+        echo "# HELP thanos_compact_auto_remediate_total Total auto-remediation runs by outcome."
+        echo "# TYPE thanos_compact_auto_remediate_total counter"
+        for f in "$STATE_DIR"/result_*; do
+            [ -f "$f" ] || continue
+            local r="${f##*/result_}"
+            local v
+            v=$(cat "$f" 2>/dev/null || echo 0)
+            echo "thanos_compact_auto_remediate_total{result=\"${r}\"} ${v}"
+        done
+        echo "# HELP thanos_compact_auto_remediate_last_run_timestamp_seconds Unix timestamp of last run."
+        echo "# TYPE thanos_compact_auto_remediate_last_run_timestamp_seconds gauge"
+        echo "thanos_compact_auto_remediate_last_run_timestamp_seconds $(date +%s)"
+    } > "${TEXTFILE_PATH}.tmp" 2>/dev/null && mv "${TEXTFILE_PATH}.tmp" "$TEXTFILE_PATH" 2>/dev/null || true
+}
+
 # Send an Alertmanager-shaped alert to the bridge.
-# args: alertname, severity, summary, description
+# args: alertname, severity, summary, description, [runbook_anchor]
+# runbook_anchor is appended to RUNBOOK_BASE and sent as annotations.runbook_url.
 send_alert() {
     local alertname="$1" severity="$2" summary="$3" description="$4"
+    local runbook_anchor="${5:-}"
+    local runbook_url="${RUNBOOK_BASE}${runbook_anchor:+#${runbook_anchor}}"
     local ts; ts=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
     curl -sS --max-time 10 -X POST "$BRIDGE_URL" \
         -H "Content-Type: application/json" \
@@ -54,7 +87,8 @@ send_alert() {
     },
     "annotations": {
       "summary": "${summary}",
-      "description": "${description}"
+      "description": "${description}",
+      "runbook_url": "${runbook_url}"
     },
     "startsAt": "${ts}",
     "endsAt": "0001-01-01T00:00:00Z"
@@ -98,13 +132,19 @@ elif systemctl is-active --quiet "$SERVICE"; then
                 REASON="downsample_failures_total: ${LAST} -> ${FAILS}"
             else
                 log "downsample_failures_total: ${LAST} -> ${FAILS} but no checksum error in recent logs (likely transient); skipping remediation"
+                write_textfile_metric "transient_skipped"
+                echo "$FAILS" > "$LAST_FILE"
+                exit 0
             fi
         fi
         echo "$FAILS" > "$LAST_FILE"
     fi
 fi
 
-[ "$NEEDS" -eq 0 ] && exit 0
+if [ "$NEEDS" -eq 0 ]; then
+    write_textfile_metric "not_needed"
+    exit 0
+fi
 
 log "remediation needed: $TRIGGER / $REASON"
 
@@ -119,7 +159,9 @@ if [ "$COUNT" -ge "$MAX_ACTIONS_PER_HOUR" ]; then
     log "rate limit hit ($COUNT/${MAX_ACTIONS_PER_HOUR})"
     send_alert "ThanosAutoRemediateRateLimit" "critical" \
         "Auto-remediate rate limit hit" \
-        "${COUNT} actions in last hour, giving up. Latest trigger: ${TRIGGER}. Manual intervention required."
+        "${COUNT} actions in last hour, giving up. Latest trigger: ${TRIGGER}. Manual intervention required." \
+        "rate-limit-hit"
+    write_textfile_metric "rate_limited"
     exit 1
 fi
 
@@ -199,7 +241,9 @@ if [ -z "$BLOCK_ID" ] || [ -z "$MARKER" ] \
     log "cannot identify valid block ULID / stage from logs"
     send_alert "ThanosAutoRemediateGaveUp" "critical" \
         "Cannot identify block/stage" \
-        "Trigger: ${TRIGGER}. Reason: ${REASON}. Manual investigation required."
+        "Trigger: ${TRIGGER}. Reason: ${REASON}. Manual investigation required." \
+        "alert-thanosautoremediategaveup"
+    write_textfile_metric "gave_up"
     exit 1
 fi
 
@@ -215,7 +259,9 @@ if ! "$THANOS_BIN" tools bucket mark \
     log "mark failed for $BLOCK_ID"
     send_alert "ThanosAutoRemediateFailed" "critical" \
         "Failed to mark block ${BLOCK_ID}" \
-        "Trigger: ${TRIGGER}. Marker: ${MARKER}. Check /var/lib/thanos-remediate/mark.log."
+        "Trigger: ${TRIGGER}. Marker: ${MARKER}. Check /var/lib/thanos-remediate/mark.log." \
+        "alert-thanosautoremediatefailed"
+    write_textfile_metric "mark_failed"
     exit 1
 fi
 
@@ -252,6 +298,13 @@ fi
 
 send_alert "ThanosCompactAutoRemediated" "$SEV" \
     "Auto-remediated: ${TRIGGER} on ${BLOCK_ID}" \
-    "Trigger: ${TRIGGER}. Block: ${BLOCK_ID}. Marker: ${MARKER}. Details: ${DETAILS_LINE:-none}. Service: ${STATUS}."
+    "Trigger: ${TRIGGER}. Block: ${BLOCK_ID}. Marker: ${MARKER}. Details: ${DETAILS_LINE:-none}. Service: ${STATUS}." \
+    "auto-remediation"
+
+if [ "$SEV" = "info" ]; then
+    write_textfile_metric "succeeded"
+else
+    write_textfile_metric "service_down"
+fi
 
 log "done: $BLOCK_ID $MARKER, $STATUS"

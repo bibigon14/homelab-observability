@@ -8,6 +8,7 @@ groups:
           severity: critical
         annotations:
           summary: "Thanos Compactor has halted"
+          runbook_url: "https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md#alert-thanoscompacthalted"
           description: "thanos-compact hit an unrecoverable error (commonly an R2 block checksum mismatch) and stopped all future compaction/downsampling. The process stays up and reports healthy to systemd - check journalctl for \"critical error detected; halting\" and the corrupted block ULID. See homelab-observability README's Thanos Compactor section for the recovery runbook."
 
       - alert: ThanosCompactFailed
@@ -17,6 +18,7 @@ groups:
           severity: critical
         annotations:
           summary: "Thanos Compactor has hit StartLimitBurst and stopped restarting"
+          runbook_url: "https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md#alert-thanoscompactfailed"
           description: "thanos-compact.service crash-looped past its restart limit (5 restarts / 600s) and systemd gave up. Manual intervention required: find the corrupted block in the logs, mark it, then `systemctl reset-failed thanos-compact` before restarting."
 
       - alert: ThanosCompactDown
@@ -26,6 +28,7 @@ groups:
           severity: warning
         annotations:
           summary: "Thanos Compactor target unreachable"
+          runbook_url: "https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md#alert-thanoscompactdown"
           description: "Prometheus cannot scrape thanos-compact on localhost:19194 for over 10 minutes."
 
       - alert: ThanosSidecarDown
@@ -54,3 +57,42 @@ groups:
         annotations:
           summary: "Thanos Query target unreachable"
           description: "Prometheus cannot scrape thanos-query for over 5 minutes - Grafana's Thanos datasource will fail."
+
+      - alert: ThanosCompactAutoRemediateGaveUp
+        expr: increase(thanos_compact_auto_remediate_total{result="gave_up"}[10m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "thanos-compact auto-remediate could not identify block/stage"
+          runbook_url: "https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md#alert-thanosautoremediategaveup"
+          description: "auto-remediate script detected a thanos-compact failure but could not parse the offending block ULID or stage from logs. Manual investigation required - see runbook for log pattern recognition and manual mark procedure."
+
+      - alert: ThanosCompactAutoRemediateRateLimit
+        expr: increase(thanos_compact_auto_remediate_total{result="rate_limited"}[1h]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "thanos-compact auto-remediate rate limit hit"
+          runbook_url: "https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md#alert-thanosautoremediateratelimit"
+          description: "auto-remediate attempted 5+ actions in the last hour and gave up to avoid runaway loops. Either upstream regressed, R2 is flapping, or script has a bug - investigate before unblocking."
+
+      - alert: ThanosCompactAutoRemediateMarkFailed
+        expr: increase(thanos_compact_auto_remediate_total{result="mark_failed"}[10m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "thanos tools bucket mark failed in auto-remediate"
+          runbook_url: "https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md#alert-thanosautoremediatefailed"
+          description: "auto-remediate identified a bad block but the thanos tools bucket mark call itself failed. Check /var/lib/thanos-remediate/mark.log on homebridge for the actual error (likely R2 credentials, network, or objstore config issue)."
+
+      - alert: ThanosCompactAutoRemediateStale
+        expr: time() - thanos_compact_auto_remediate_last_run_timestamp_seconds > 600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "thanos-compact-remediate.timer appears not running"
+          runbook_url: "https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md#timer-not-running"
+          description: "Last auto-remediate run was over 10 minutes ago (timer interval is 2 min). Timer may be stopped, textfile write may be broken, or node_exporter is not reading the textfile dir."

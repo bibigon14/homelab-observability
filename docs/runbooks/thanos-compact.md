@@ -326,3 +326,138 @@ Expect: `active (running)`, `thanos_compact_halted 0`, logs showing
   the sha256-stable-across-reads + verify-clean evidence gathered here.
 - Explore whether the compact-stage `expected:0` variant (mode 2) is
   worth a separate upstream issue against sidecar rather than compactor.
+
+---
+
+## Alert to section mapping
+
+Each alert's `runbook_url` annotation points to one of these anchors.
+
+| Alert | Section |
+|-------|---------|
+| `ThanosCompactHalted` | [`#alert-thanoscompacthalted`](#alert-thanoscompacthalted) |
+| `ThanosCompactFailed` | [`#alert-thanoscompactfailed`](#alert-thanoscompactfailed) |
+| `ThanosCompactDown` | [`#alert-thanoscompactdown`](#alert-thanoscompactdown) |
+| `ThanosAutoRemediateGaveUp` / `ThanosCompactAutoRemediateGaveUp` | [`#alert-thanosautoremediategaveup`](#alert-thanosautoremediategaveup) |
+| `ThanosAutoRemediateRateLimit` / `ThanosCompactAutoRemediateRateLimit` | [`#alert-thanosautoremediateratelimit`](#alert-thanosautoremediateratelimit) |
+| `ThanosAutoRemediateFailed` / `ThanosCompactAutoRemediateMarkFailed` | [`#alert-thanosautoremediatefailed`](#alert-thanosautoremediatefailed) |
+| `ThanosCompactAutoRemediated` | [`#auto-remediation`](#auto-remediation) |
+| `ThanosCompactAutoRemediateStale` | [`#timer-not-running`](#timer-not-running) |
+
+---
+
+## Fallback 4: compact-stage filesystem path (Thanos 0.42+)
+
+Added 2026-10-14 after recurrence #6 - see postmortem.
+
+In Thanos 0.42+, compact-stage errors on blocks the compactor read from local disk (not freshly downloaded from R2) do not emit any of the three error wordings fallbacks 1-3 search for, nor a preceding `msg="downloaded block" id=<ULID>` line to walk back to. The block ULID appears only inside the filesystem path within the error itself:
+
+    gather index issues for block /var/lib/thanos/compact/compact/0@<GROUP>/<ULID>: read series: invalid checksum
+
+Fallback 4 extracts the ULID from this path (pattern `block /[^ ]+/[0-9A-Z]{26}:`). Marker is always `no-compact-mark.json` for this path - compact-stage errors never contain the word "downsample" in this wording.
+
+To debug when a new wording appears and all 4 fallbacks fail:
+
+    sudo journalctl -u thanos-compact --since "2 hours ago" --no-pager \
+        | grep -E "level=error|invalid checksum|downloaded block|downsample" | tail -30
+
+Then look for `[0-9A-Z]{26}` anywhere in the output to find the ULID, and determine the stage from the surrounding wording. File a follow-up PR adding a 5th fallback.
+
+---
+
+## Transient downsample_fail guard
+
+Added 2026-10-15 after recurrence #7.
+
+The `downsample_fail` trigger (incremented counter `thanos_compact_downsample_failures_total`) fires on any single-tick increment, including transient errors like `context canceled`, timeouts, or R2 connection failures that Thanos retries on its own. These false-positives surfaced as `ThanosAutoRemediateGaveUp` because the script had no checksum-shaped log line to parse a ULID from.
+
+The guard checks recent logs for `checksum|invalid|corrupt|gather index` before triggering. If none appear, the script logs `likely transient; skipping remediation`, writes `transient_skipped` to the counter, and exits cleanly.
+
+To check how often this fires:
+
+    cat /var/lib/thanos-remediate/result_transient_skipped
+    curl -s http://localhost:9100/metrics | grep 'thanos_compact_auto_remediate_total{result="transient_skipped"}'
+
+If this grows rapidly, something is causing frequent download failures (R2 outage, network issue, DNS). Investigate separately - the guard just prevents false alerts, it does not fix the underlying flakiness.
+
+---
+
+## Timer not running
+
+Alert `ThanosCompactAutoRemediateStale` fires when `thanos_compact_auto_remediate_last_run_timestamp_seconds` is older than 10 minutes (expected run interval is 2 min).
+
+Possible causes:
+
+1. `thanos-compact-remediate.timer` is stopped or disabled.
+2. The script runs but cannot write to `/var/lib/prometheus/node-exporter/thanos-remediate.prom` (permission issue after a package update).
+3. `node_exporter` textfile collector is not reading the directory, or exporter itself is down.
+
+Diagnose:
+
+    sudo systemctl status thanos-compact-remediate.timer
+    sudo systemctl list-timers | grep thanos-compact-remediate
+    ls -la /var/lib/prometheus/node-exporter/thanos-remediate.prom
+    sudo journalctl -u thanos-compact-remediate.service --since "30 min ago" --no-pager | tail -40
+    curl -s http://localhost:9100/metrics | grep thanos_compact_auto_remediate_last_run
+
+Fix for case 1:
+
+    sudo systemctl enable --now thanos-compact-remediate.timer
+
+---
+
+## Alert anchors (for runbook_url)
+
+Each `<a id="...">` anchor below is referenced by a Prometheus alert's `runbook_url` annotation. Keep them in sync with `prometheus/rules/thanos-alerts.yml`.
+
+<a id="alert-thanoscompacthalted"></a>
+### alert-thanoscompacthalted
+
+See [Failure mode 2](#2-thanoscompacthalted--process-alive-internally-stopped) above and [Manual recovery](#manual-recovery) for the halted-process restart sequence (SIGKILL, not SIGTERM).
+
+<a id="alert-thanoscompactfailed"></a>
+### alert-thanoscompactfailed
+
+See [Failure mode 1](#1-thanoscompactfailed--systemd-killed-the-unit) above and [Manual recovery](#manual-recovery).
+
+<a id="alert-thanoscompactdown"></a>
+### alert-thanoscompactdown
+
+Downstream signal, not root cause. First check if `ThanosCompactFailed` or `ThanosCompactHalted` is also firing - see [Failure mode 3](#3-thanoscompactdown--scrape-target-unreachable).
+
+<a id="alert-thanosautoremediategaveup"></a>
+### alert-thanosautoremediategaveup
+
+The auto-remediate script detected a failure but could not parse the offending block ULID from logs. Follow [Manual recovery](#manual-recovery). If this is a new log wording not covered by fallbacks 1-4, see [Fallback 4](#fallback-4-compact-stage-filesystem-path-thanos-042) for debug hints and consider a follow-up PR.
+
+<a id="alert-thanosautoremediateratelimit"></a>
+### alert-thanosautoremediateratelimit
+
+Script took 5+ remediation actions in the last hour and bailed. **Do not just unblock it** - investigate first:
+
+    sudo cat /var/lib/thanos-remediate/actions.log
+
+If the trigger pattern is suspicious (same block repeatedly, or `downsample_fail` without checksum in logs), the script may have a bug or upstream regressed. Only after understanding the pattern:
+
+    sudo rm /var/lib/thanos-remediate/actions.log  # resets rate limit
+
+<a id="alert-thanosautoremediatefailed"></a>
+### alert-thanosautoremediatefailed
+
+The `thanos tools bucket mark` call itself failed. Likely causes: R2 credentials expired/rotated, network, or `objstore.yml` config broken.
+
+    sudo tail -50 /var/lib/thanos-remediate/mark.log
+    sudo python3 -c "import yaml; yaml.safe_load(open('/etc/thanos/objstore.yml'))"  # structure check
+    curl -s http://localhost:19194/metrics | grep thanos_objstore_bucket_operation_failures_total
+
+Do not `sudo cat /etc/thanos/objstore.yml` - credentials leak risk, see homelab-observability README notes on secret file handling.
+
+<a id="auto-remediation"></a>
+### auto-remediation (ThanosCompactAutoRemediated)
+
+Informational alert from a successful (or failed-to-recover) auto-remediate run. See [Auto-remediation](#auto-remediation-1) section above for the full flow.
+
+<a id="timer-not-running"></a>
+### timer-not-running
+
+See [Timer not running](#timer-not-running-1) section above.

@@ -25,6 +25,18 @@ Every 2 minutes, a systemd timer runs a bash script that:
      id=<ULID>` line and picks the marker from the stage word in the
      error (`downsampling` / `downsample` → downsample marker,
      otherwise compact marker).
+   - `gather index issues for block /path/<ULID>: read series: invalid checksum`
+     (Thanos ≥0.42, compact stage on locally-cached blocks) → no
+     `downloaded block` line to walk back to. ULID is extracted
+     directly from the filesystem path in the error. Marker is always
+     `no-compact-mark.json` for this path.
+
+   For the `downsample_fail` trigger (counter-based detection), the
+   script additionally checks recent logs for checksum-shaped wording
+   before acting. If the counter incremented but no checksum error is
+   present (e.g. `context canceled` on a block download), the script
+   logs `likely transient; skipping remediation` and exits cleanly -
+   Thanos retries these on its own.
 3. Marks the block with `thanos tools bucket mark`.
 4. Restarts the service. Uses `SIGKILL` for the halted-process case
    because `SIGTERM` hangs indefinitely in that state.
@@ -75,6 +87,11 @@ sudo install -m 0644 thanos-compact-remediate.timer \
 sudo mkdir -p /var/lib/thanos-remediate
 sudo chown root:root /var/lib/thanos-remediate
 sudo chmod 0755 /var/lib/thanos-remediate
+
+# node_exporter textfile collector must be able to read the metric file.
+# Directory usually already exists for other textfile exporters (router,
+# speedtest, etc.) - this is just a sanity check.
+test -d /var/lib/prometheus/node-exporter || sudo install -d -o prometheus -g prometheus -m 0755 /var/lib/prometheus/node-exporter
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now thanos-compact-remediate.timer
@@ -130,13 +147,39 @@ sudo systemctl start thanos-compact-remediate.timer
 
 ## Alerts emitted
 
-| Alertname | Severity | Meaning |
-|-----------|----------|---------|
-| `ThanosCompactAutoRemediated` | info | Remediation ran, service is healthy again |
-| `ThanosCompactAutoRemediated` | critical | Remediation ran but service did not come back up in 30s |
-| `ThanosAutoRemediateRateLimit` | critical | 5+ actions in the last hour, script gave up to avoid a runaway loop |
-| `ThanosAutoRemediateGaveUp` | critical | Cannot identify the offending block/stage from logs — manual investigation needed |
-| `ThanosAutoRemediateFailed` | critical | `thanos tools bucket mark` itself failed — check `mark.log` |
+Two parallel notification paths, during migration period:
+
+**Path A - direct webhook from script** (legacy, kept as fallback if Prometheus itself is down). The script POSTs Alertmanager-shaped JSON directly to the local telegram-bridge webhook. No `generatorURL` in these alerts.
+
+**Path B - Prometheus textfile metric** (new, preferred). Script writes `thanos_compact_auto_remediate_total{result="..."}` to a node_exporter textfile. Prometheus scrapes it, alertmanager rules fire on the counter, bridge delivers to Telegram as usual. These alerts carry `generatorURL` and `runbook_url` annotations.
+
+Direct-webhook (Path A) will be removed in a future PR after 2-4 weeks of Path B validation.
+
+| Alertname | Severity | Path | Runbook anchor | Meaning |
+|-----------|----------|------|----------------|---------|
+| `ThanosCompactAutoRemediated` | info | A | `#auto-remediation` | Remediation ran, service is healthy again |
+| `ThanosCompactAutoRemediated` | critical | A | `#auto-remediation` | Remediation ran but service did not come back up in 30s |
+| `ThanosAutoRemediateRateLimit` | critical | A | `#alert-thanosautoremediateratelimit` | Script hit per-hour rate limit, gave up |
+| `ThanosAutoRemediateGaveUp` | critical | A | `#alert-thanosautoremediategaveup` | Cannot identify offending block/stage from logs |
+| `ThanosAutoRemediateFailed` | critical | A | `#alert-thanosautoremediatefailed` | `thanos tools bucket mark` call failed |
+| `ThanosCompactAutoRemediateGaveUp` | critical | B | `#alert-thanosautoremediategaveup` | Counter `result="gave_up"` incremented |
+| `ThanosCompactAutoRemediateRateLimit` | critical | B | `#alert-thanosautoremediateratelimit` | Counter `result="rate_limited"` incremented |
+| `ThanosCompactAutoRemediateMarkFailed` | critical | B | `#alert-thanosautoremediatefailed` | Counter `result="mark_failed"` incremented |
+| `ThanosCompactAutoRemediateStale` | warning | B | `#timer-not-running` | No run in 10+ min, timer may be stopped |
+
+## Metrics
+
+Script writes the following to `/var/lib/prometheus/node-exporter/thanos-remediate.prom` on every exit path (atomic tmp+mv):
+
+- `thanos_compact_auto_remediate_total{result="..."}` - cumulative counter. Values: `not_needed`, `succeeded`, `gave_up`, `rate_limited`, `mark_failed`, `service_down`, `transient_skipped`.
+- `thanos_compact_auto_remediate_last_run_timestamp_seconds` - Unix timestamp of last run. Used by `ThanosCompactAutoRemediateStale` to detect a stopped timer.
+
+Per-result counts are kept in `/var/lib/thanos-remediate/result_<name>` files between runs - deleting these resets the counters without affecting operation.
+
+Verify on the Pi:
+
+    cat /var/lib/prometheus/node-exporter/thanos-remediate.prom
+    curl -s http://localhost:9100/metrics | grep thanos_compact_auto_remediate
 
 ## Design choices worth calling out
 
