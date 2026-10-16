@@ -291,3 +291,56 @@ curl -s http://localhost:19194/metrics | grep "^thanos_compact_halted "
 ```
 
 Expect `active (running)`, `thanos_compact_halted 0`.
+
+---
+
+## Recurrence #6 - 2026-10-14 - compact-stage path edge case
+
+Block `01M4SHDRMR30GPQTCKPSBK8QKT`. Alert `ThanosAutoRemediateGaveUp` fired 7 times between 21:11 and 21:25 PDT before the block was manually marked. 3 subsequent halted blocks auto-remediated correctly without intervention.
+
+**New failure signature**: compact-stage error on a block the compactor read from local disk (sidecar/store had already synced it). None of the 3 existing fallbacks matched:
+
+- Fallback 1 (`downsample block <ULID>`) - compact-stage, not downsample.
+- Fallback 2 (`from block <ULID>`) - Thanos 0.42 wording changed.
+- Fallback 3 (walk-back from error to preceding `msg="downloaded block" id=X`) - no such line exists; block was already on disk, never freshly downloaded in this run.
+
+The block ULID appeared only inside the local filesystem path embedded in the error:
+
+    gather index issues for block /var/lib/thanos/compact/compact/0@16166741704735203456/01M4SHDRMR30GPQTCKPSBK8QKT: read series: invalid checksum
+
+**Fix** (PR #4, merged `fb9fc0d`): added fallback 4 extracting ULID from the filesystem path (pattern `block /[^ ]+/[0-9A-Z]{26}:`). Marker is always `no-compact-mark.json` for this path. Added ULID validation (`^[0-9A-Z]{26}$`) to the final check to guard against future parsing bugs leaking a line number or other non-ULID value into `thanos tools bucket mark --id=`.
+
+**Lesson**: same block can fail at different stages across incidents (recurrence #5 was downsample stage on same block, #6 was compact stage). Downsample marker does not cover compact path and vice versa. When corruption is in the index itself (`gather index issues`), consider marking both proactively.
+
+---
+
+## Recurrence #7 - 2026-10-15 22:39 PDT - transient context-canceled false positive
+
+Alert `ThanosAutoRemediateGaveUp` fired. On investigation the next morning, `thanos-compact` had been healthy for 7+ hours with 8 clean iterations. The actual error from the previous evening:
+
+    caller=compact.go:559 level=error msg="retriable error" err="first pass of downsampling failed: downsampling to 5 min: download block 01M51K7H9DEZ4TV40KEN9RV5AK: context canceled"
+
+Not corruption. A download got cancelled (network blip, R2 timeout, or shutdown during download). Thanos labeled it `retriable error` and retried successfully on the next iteration.
+
+But the `downsample_fail` trigger in the auto-remediate script fires on **any** single-tick increment of `thanos_compact_downsample_failures_total`, including these retriable transients. The script then had no checksum-shaped log pattern to parse a ULID from and alerted loudly.
+
+**Fix** (PR #4, merged `fb9fc0d`): added a guard that checks recent logs for `checksum|invalid|corrupt|gather index` before triggering. If the counter increment is not accompanied by a real checksum error, log `likely transient; skipping remediation` and exit cleanly.
+
+**Lesson**: counter-based triggers need corroborating evidence from logs before acting. Alerting on raw deltas invites false positives on any transient that bumps the metric.
+
+---
+
+## Follow-up #1 - 2026-10-16 - metrics and alert path migration
+
+Both recurrence #6 and #7 reached the operator through direct webhooks from the auto-remediate script to the alertmanager-telegram-bridge. These alerts have no `generatorURL` (they bypass Prometheus) and no stored `runbook_url` (annotations added only recently to the script, see PR #5), making it harder to orient when the alert arrives at 22:00 and the operator is away from laptop.
+
+PR #5 adds:
+
+- `thanos_compact_auto_remediate_total{result="..."}` and `thanos_compact_auto_remediate_last_run_timestamp_seconds` metrics written to `/var/lib/prometheus/node-exporter/thanos-remediate.prom` on every script exit path.
+- 4 new Prometheus alerts (`ThanosCompactAutoRemediate{GaveUp,RateLimit,MarkFailed,Stale}`) firing off the counter, carrying `runbook_url` annotations pointing to specific sections of this repo's runbook.
+- `runbook_url` annotations added to existing script-generated alerts (direct webhook path).
+- `runbook_url` annotations added to existing Prometheus-generated Thanos alerts (`ThanosCompactHalted`, `ThanosCompactFailed`, `ThanosCompactDown`).
+
+Direct-webhook alerts from the script are kept during a 2-4 week migration period as a fallback for the case where Prometheus itself is down. After migration validates the Prometheus path is reliable, direct webhooks will be removed in a follow-up PR.
+
+**Lesson**: operator ergonomics (runbook links in alerts) and self-observability (metrics on the auto-remediate script itself, including `*AutoRemediateStale` to detect that the auto-fixer stopped) deserve the same treatment as the thing being observed. Script-sends-direct-webhook was expedient initially but hides the alert source from Prometheus and alertmanager tooling.
