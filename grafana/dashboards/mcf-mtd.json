@@ -1,0 +1,1738 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "GCP (BigQuery billing export)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 1,
+      "title": "Month-to-date spend",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "grafana-bigquery-datasource",
+        "uid": "bq-billing-export"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT ROUND(SUM(cost), 2) AS cost_usd FROM `dstepanov-gke-platform.billing_export.gcp_billing_export_v1_0108CD_97A262_B94181` WHERE _PARTITIONTIME >= TIMESTAMP(DATE_TRUNC(CURRENT_DATE(), MONTH))",
+          "format": "table",
+          "location": "US"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Burn rate (1.0 = on plan)",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 1
+      },
+      "datasource": {
+        "type": "grafana-bigquery-datasource",
+        "uid": "bq-billing-export"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "WITH mtd AS (SELECT SUM(cost) AS spend FROM `dstepanov-gke-platform.billing_export.gcp_billing_export_v1_0108CD_97A262_B94181` WHERE _PARTITIONTIME >= TIMESTAMP(DATE_TRUNC(CURRENT_DATE(), MONTH))), cal AS (SELECT EXTRACT(DAY FROM CURRENT_DATE()) AS d, EXTRACT(DAY FROM LAST_DAY(CURRENT_DATE(), MONTH)) AS dm) SELECT ROUND(SAFE_DIVIDE(SAFE_DIVIDE(mtd.spend, 10.0), SAFE_DIVIDE(cal.d, cal.dm)), 2) AS burn_rate FROM mtd, cal",
+          "format": "table",
+          "location": "US"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1.0
+              },
+              {
+                "color": "red",
+                "value": 1.5
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Projected month-end spend",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "datasource": {
+        "type": "grafana-bigquery-datasource",
+        "uid": "bq-billing-export"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "WITH mtd AS (SELECT SUM(cost) AS spend FROM `dstepanov-gke-platform.billing_export.gcp_billing_export_v1_0108CD_97A262_B94181` WHERE _PARTITIONTIME >= TIMESTAMP(DATE_TRUNC(CURRENT_DATE(), MONTH))), cal AS (SELECT EXTRACT(DAY FROM CURRENT_DATE()) AS d, EXTRACT(DAY FROM LAST_DAY(CURRENT_DATE(), MONTH)) AS dm) SELECT ROUND(SAFE_DIVIDE(mtd.spend, cal.d) * cal.dm, 2) AS projected FROM mtd, cal",
+          "format": "table",
+          "location": "US"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 8
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "title": "MTD cost by service",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "grafana-bigquery-datasource",
+        "uid": "bq-billing-export"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT service.description AS service, ROUND(SUM(cost), 4) AS cost_usd FROM `dstepanov-gke-platform.billing_export.gcp_billing_export_v1_0108CD_97A262_B94181` WHERE _PARTITIONTIME >= TIMESTAMP(DATE_TRUNC(CURRENT_DATE(), MONTH)) GROUP BY service ORDER BY cost_usd DESC LIMIT 20",
+          "format": "table",
+          "location": "US"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "service",
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Daily spend trend (last 30 days)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "datasource": {
+        "type": "grafana-bigquery-datasource",
+        "uid": "bq-billing-export"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSql": "SELECT TIMESTAMP_TRUNC(usage_start_time, DAY) AS time, service.description AS metric, SUM(cost) AS value FROM `dstepanov-gke-platform.billing_export.gcp_billing_export_v1_0108CD_97A262_B94181` WHERE _PARTITIONTIME >= TIMESTAMP(DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)) GROUP BY time, metric ORDER BY time",
+          "format": "table",
+          "location": "US"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "AWS (CUR 2.0)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "panels": []
+    },
+    {
+      "id": 6,
+      "title": "Month-to-date spend (AWS)",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "aws-athena-cur"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSQL": "SELECT ROUND(COALESCE(SUM(line_item_unblended_cost), 0.0), 2) AS cost_usd FROM multi_cloud_finops.\"data\" WHERE billing_period = date_format(current_date, '%Y-%m')   AND line_item_line_item_type IN ('Usage', 'DiscountedUsage', 'SavingsPlanCoveredUsage', 'SavingsPlanRecurringFee', 'Fee')",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 7,
+      "title": "Burn rate (AWS, 1.0 = on plan)",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 17
+      },
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "aws-athena-cur"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSQL": "WITH mtd AS (SELECT COALESCE(SUM(line_item_unblended_cost), 0.0) AS spend FROM multi_cloud_finops.\"data\" WHERE billing_period = date_format(current_date, '%Y-%m')   AND line_item_line_item_type IN ('Usage', 'DiscountedUsage', 'SavingsPlanCoveredUsage', 'SavingsPlanRecurringFee', 'Fee')), cal AS (SELECT day_of_month(current_date) AS d,        day_of_month(last_day_of_month(current_date)) AS dm) SELECT ROUND(  (mtd.spend / NULLIF(10.0, 0)) /   NULLIF(CAST(cal.d AS DOUBLE) / cal.dm, 0), 2) AS burn_rate FROM mtd, cal",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1.0
+              },
+              {
+                "color": "red",
+                "value": 1.5
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 8,
+      "title": "Projected month-end (AWS)",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 17
+      },
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "aws-athena-cur"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSQL": "WITH mtd AS (SELECT COALESCE(SUM(line_item_unblended_cost), 0.0) AS spend FROM multi_cloud_finops.\"data\" WHERE billing_period = date_format(current_date, '%Y-%m')   AND line_item_line_item_type IN ('Usage', 'DiscountedUsage', 'SavingsPlanCoveredUsage', 'SavingsPlanRecurringFee', 'Fee')), cal AS (SELECT day_of_month(current_date) AS d,        day_of_month(last_day_of_month(current_date)) AS dm) SELECT ROUND((mtd.spend / NULLIF(cal.d, 0)) * cal.dm, 2) AS projected FROM mtd, cal",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 8
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 9,
+      "title": "MTD cost by service (AWS)",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "aws-athena-cur"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSQL": "SELECT product_servicecode AS service,        ROUND(SUM(line_item_unblended_cost), 4) AS cost_usd FROM multi_cloud_finops.\"data\" WHERE billing_period = date_format(current_date, '%Y-%m')   AND line_item_line_item_type IN ('Usage', 'DiscountedUsage', 'SavingsPlanCoveredUsage', 'SavingsPlanRecurringFee', 'Fee') GROUP BY product_servicecode ORDER BY cost_usd DESC LIMIT 20",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "service",
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Daily spend trend (AWS, last 30 days)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "aws-athena-cur"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "rawSQL": "SELECT date_trunc('day', line_item_usage_start_date) AS time,        product_servicecode AS metric,        SUM(line_item_unblended_cost) AS value FROM multi_cloud_finops.\"data\" WHERE billing_period IN (    date_format(current_date, '%Y-%m'),    date_format(current_date - interval '1' month, '%Y-%m')  )   AND line_item_usage_start_date >= current_date - interval '30' day   AND line_item_line_item_type IN ('Usage', 'DiscountedUsage', 'SavingsPlanCoveredUsage', 'SavingsPlanRecurringFee', 'Fee') GROUP BY 1, 2 ORDER BY 1",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Azure (Cost Management)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "panels": []
+    },
+    {
+      "id": 11,
+      "title": "Month-to-date spend (Azure)",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 34
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "azure-cost-management"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://management.azure.com/subscriptions/c395c797-0fbf-40e6-b1f8-b9a1eee8d838/providers/Microsoft.CostManagement/query?api-version=2024-08-01",
+          "url_options": {
+            "method": "POST",
+            "data": "{\"type\": \"ActualCost\", \"timeframe\": \"MonthToDate\", \"dataset\": {\"granularity\": \"None\", \"aggregation\": {\"totalCost\": {\"name\": \"Cost\", \"function\": \"Sum\"}}}}",
+            "body_type": "raw",
+            "body_content_type": "application/json"
+          },
+          "parser": "backend",
+          "root_selector": "properties.rows",
+          "columns": [
+            {
+              "selector": "0",
+              "text": "cost_usd",
+              "type": "number"
+            },
+            {
+              "selector": "1",
+              "text": "currency",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [],
+          "global_query_id": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "currency"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^cost_usd$/",
+          "values": false
+        }
+      },
+      "cacheTimeout": "600",
+      "interval": "10m"
+    },
+    {
+      "id": 12,
+      "title": "MTD cost by service (Azure)",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 39
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "azure-cost-management"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://management.azure.com/subscriptions/c395c797-0fbf-40e6-b1f8-b9a1eee8d838/providers/Microsoft.CostManagement/query?api-version=2024-08-01",
+          "url_options": {
+            "method": "POST",
+            "data": "{\"type\": \"ActualCost\", \"timeframe\": \"MonthToDate\", \"dataset\": {\"granularity\": \"None\", \"aggregation\": {\"totalCost\": {\"name\": \"Cost\", \"function\": \"Sum\"}}, \"grouping\": [{\"type\": \"Dimension\", \"name\": \"ServiceName\"}]}}",
+            "body_type": "raw",
+            "body_content_type": "application/json"
+          },
+          "parser": "backend",
+          "root_selector": "properties.rows",
+          "columns": [
+            {
+              "selector": "0",
+              "text": "cost_usd",
+              "type": "number"
+            },
+            {
+              "selector": "1",
+              "text": "service",
+              "type": "string"
+            },
+            {
+              "selector": "2",
+              "text": "currency",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [],
+          "global_query_id": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "currency"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "service",
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "cacheTimeout": "600",
+      "interval": "10m"
+    },
+    {
+      "id": 13,
+      "title": "Daily spend trend (Azure, billing month)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 39
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "azure-cost-management"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://management.azure.com/subscriptions/c395c797-0fbf-40e6-b1f8-b9a1eee8d838/providers/Microsoft.CostManagement/query?api-version=2024-08-01",
+          "url_options": {
+            "method": "POST",
+            "data": "{\"type\": \"ActualCost\", \"timeframe\": \"MonthToDate\", \"dataset\": {\"granularity\": \"Daily\", \"aggregation\": {\"totalCost\": {\"name\": \"Cost\", \"function\": \"Sum\"}}}}",
+            "body_type": "raw",
+            "body_content_type": "application/json"
+          },
+          "parser": "backend",
+          "root_selector": "properties.rows",
+          "columns": [
+            {
+              "selector": "0",
+              "text": "value",
+              "type": "number"
+            },
+            {
+              "selector": "1",
+              "text": "day_int",
+              "type": "number"
+            },
+            {
+              "selector": "2",
+              "text": "currency",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [],
+          "global_query_id": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "currency"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "transformations": [
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "day_int",
+                "destinationType": "string"
+              }
+            ]
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "day_int",
+                "destinationType": "time",
+                "dateFormat": "YYYYMMDD"
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "day_int": "time"
+            }
+          }
+        }
+      ],
+      "cacheTimeout": "600",
+      "interval": "10m"
+    },
+    {
+      "id": 14,
+      "title": "Burn rate (Azure)",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 34
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "azure-cost-management"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://management.azure.com/subscriptions/c395c797-0fbf-40e6-b1f8-b9a1eee8d838/providers/Microsoft.CostManagement/query?api-version=2024-08-01",
+          "url_options": {
+            "method": "POST",
+            "data": "{\"type\": \"ActualCost\", \"timeframe\": \"MonthToDate\", \"dataset\": {\"granularity\": \"None\", \"aggregation\": {\"totalCost\": {\"name\": \"Cost\", \"function\": \"Sum\"}}}}",
+            "body_type": "raw",
+            "body_content_type": "application/json"
+          },
+          "parser": "backend",
+          "root_selector": "properties.rows",
+          "columns": [
+            {
+              "selector": "0",
+              "text": "cost_usd",
+              "type": "number"
+            },
+            {
+              "selector": "1",
+              "text": "currency",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [],
+          "global_query_id": ""
+        }
+      ],
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "mode": "binary",
+            "alias": "burn_rate",
+            "binary": {
+              "left": "cost_usd",
+              "operator": "*",
+              "right": "0.2727"
+            },
+            "replaceFields": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "cost_usd": true,
+              "currency": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1.0
+              },
+              {
+                "color": "red",
+                "value": 1.5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "cacheTimeout": "600",
+      "interval": "10m"
+    },
+    {
+      "id": 15,
+      "title": "Projected month-end (Azure)",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 34
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "azure-cost-management"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://management.azure.com/subscriptions/c395c797-0fbf-40e6-b1f8-b9a1eee8d838/providers/Microsoft.CostManagement/query?api-version=2024-08-01",
+          "url_options": {
+            "method": "POST",
+            "data": "{\"type\": \"ActualCost\", \"timeframe\": \"MonthToDate\", \"dataset\": {\"granularity\": \"None\", \"aggregation\": {\"totalCost\": {\"name\": \"Cost\", \"function\": \"Sum\"}}}}",
+            "body_type": "raw",
+            "body_content_type": "application/json"
+          },
+          "parser": "backend",
+          "root_selector": "properties.rows",
+          "columns": [
+            {
+              "selector": "0",
+              "text": "cost_usd",
+              "type": "number"
+            },
+            {
+              "selector": "1",
+              "text": "currency",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [],
+          "global_query_id": ""
+        }
+      ],
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {
+            "mode": "binary",
+            "alias": "projected_usd",
+            "binary": {
+              "left": "cost_usd",
+              "operator": "*",
+              "right": "2.7273"
+            },
+            "replaceFields": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "cost_usd": true,
+              "currency": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10.0
+              },
+              {
+                "color": "red",
+                "value": 15.0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "cacheTimeout": "600",
+      "interval": "10m"
+    },
+    {
+      "id": 203,
+      "type": "row",
+      "title": "Kubernetes namespace attribution",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "panels": []
+    },
+    {
+      "id": 20,
+      "title": "Cost by namespace (GCP, BQ labels)",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 0,
+        "y": 51
+      },
+      "datasource": {
+        "type": "grafana-bigquery-datasource",
+        "uid": "bq-billing-export"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-bigquery-datasource",
+            "uid": "bq-billing-export"
+          },
+          "rawSql": "SELECT sl.value AS namespace, ROUND(SUM(cost), 4) AS cost FROM `dstepanov-gke-platform.billing_export.gcp_billing_export_resource_v1_*`, UNNEST(system_labels) AS sl WHERE DATE(usage_start_time) >= DATE_TRUNC(CURRENT_DATE(\"America/Los_Angeles\"), MONTH) AND sl.key = \"goog-k8s-namespace\" GROUP BY namespace ORDER BY cost DESC LIMIT 15",
+          "format": 1,
+          "editorMode": "code",
+          "location": "US",
+          "project": "dstepanov-gke-platform"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "GKE Cost Allocation activated 2026-11-12 09:03 PT.\nFirst-time backfill up to 48h.\nPanel self-populates when goog-k8s-namespace\nsystem_labels appear in Detailed BQ export."
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "namespace",
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 21,
+      "title": "Pod-level cost by namespace (AWS, SCAD)",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 8,
+        "y": 51
+      },
+      "datasource": {
+        "type": "grafana-athena-datasource",
+        "uid": "aws-athena-cur"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-athena-datasource",
+            "uid": "aws-athena-cur"
+          },
+          "rawSQL": "SELECT resource_tags['aws_eks_namespace'] AS namespace, ROUND(SUM(split_line_item_split_cost + line_item_unblended_cost), 4) AS cost FROM multi_cloud_finops.\"data\" WHERE resource_tags['aws_eks_namespace'] IS NOT NULL AND DATE(line_item_usage_start_date) >= DATE_TRUNC('month', current_date) GROUP BY resource_tags['aws_eks_namespace'] ORDER BY cost DESC",
+          "format": 1,
+          "table": "\"data\"",
+          "database": "multi_cloud_finops",
+          "connectionArgs": {
+            "catalog": "AwsDataCatalog",
+            "database": "multi_cloud_finops",
+            "region": "__default",
+            "resultReuseEnabled": false,
+            "resultReuseMaxAgeInMinutes": 60
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "namespace",
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "title": "Cost by resource group (Azure, subscription scope)",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 16,
+        "y": 51
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "azure-cost-management"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://management.azure.com/subscriptions/c395c797-0fbf-40e6-b1f8-b9a1eee8d838/providers/Microsoft.CostManagement/query?api-version=2024-08-01",
+          "url_options": {
+            "method": "POST",
+            "data": "{\"type\": \"ActualCost\", \"timeframe\": \"BillingMonthToDate\", \"dataset\": {\"granularity\": \"None\", \"aggregation\": {\"totalCost\": {\"name\": \"Cost\", \"function\": \"Sum\"}}, \"grouping\": [{\"type\": \"Dimension\", \"name\": \"ResourceGroupName\"}]}}",
+            "body_type": "raw",
+            "body_content_type": "application/json"
+          },
+          "parser": "backend",
+          "root_selector": "properties.rows",
+          "columns": [
+            {
+              "selector": "0",
+              "text": "cost",
+              "type": "number"
+            },
+            {
+              "selector": "1",
+              "text": "resource_group",
+              "type": "string"
+            },
+            {
+              "selector": "2",
+              "text": "currency",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [],
+          "global_query_id": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "resource_group",
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "cacheTimeout": "600",
+      "interval": "10m"
+    },
+    {
+      "id": 300,
+      "type": "row",
+      "title": "OCI (Usage API, Always Free)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 62
+      },
+      "panels": []
+    },
+    {
+      "id": 30,
+      "title": "Month-to-date spend (OCI, Always Free)",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 63
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "web-urls"
+      },
+      "cacheTimeout": "3600",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://sre.dstepanov.dev/api/oci-usage",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "body_type": "raw"
+          },
+          "parser": "backend",
+          "root_selector": "items",
+          "columns": [
+            {
+              "selector": "cost",
+              "text": "cost_usd",
+              "type": "number"
+            },
+            {
+              "selector": "service",
+              "text": "service",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [],
+          "global_query_id": "",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "web-urls"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.01
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "service"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "/^cost_usd$/",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 31,
+      "title": "Usage by service (OCI, 30d quantity)",
+      "type": "barchart",
+      "gridPos": {
+        "h": 10,
+        "w": 16,
+        "x": 8,
+        "y": 63
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "web-urls"
+      },
+      "cacheTimeout": "3600",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://sre.dstepanov.dev/api/oci-usage",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "body_type": "raw"
+          },
+          "parser": "backend",
+          "root_selector": "items",
+          "columns": [
+            {
+              "selector": "quantity",
+              "text": "quantity",
+              "type": "number"
+            },
+            {
+              "selector": "service",
+              "text": "service",
+              "type": "string"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [],
+          "global_query_id": "",
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "web-urls"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "service",
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "transformations": [
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "service": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "quantity": {
+                "aggregations": [
+                  "sum"
+                ],
+                "operation": "aggregate"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 400,
+      "type": "row",
+      "title": "Cloudflare (Workers Paid + Analytics Engine)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 74
+      },
+      "panels": []
+    },
+    {
+      "id": 40,
+      "title": "Monthly cost (CF Workers Paid)",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 75
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "web-urls"
+      },
+      "cacheTimeout": "3600",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://sre.dstepanov.dev/api/cf-usage",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "body_type": "raw"
+          },
+          "parser": "backend",
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "cost_usd",
+              "text": "cost_usd",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [],
+          "global_query_id": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^cost_usd$/",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 41,
+      "title": "Requests (30d, Analytics Engine)",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 75
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "web-urls"
+      },
+      "cacheTimeout": "3600",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://sre.dstepanov.dev/api/cf-usage",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "body_type": "raw"
+          },
+          "parser": "backend",
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "requests_30d",
+              "text": "requests_30d",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [],
+          "global_query_id": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^requests_30d$/",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 42,
+      "title": "Cost per 1k requests",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 75
+      },
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "web-urls"
+      },
+      "cacheTimeout": "3600",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "table",
+          "url": "https://sre.dstepanov.dev/api/cf-usage",
+          "url_options": {
+            "method": "GET",
+            "data": "",
+            "body_type": "raw"
+          },
+          "parser": "backend",
+          "root_selector": "",
+          "columns": [
+            {
+              "selector": "cost_per_1k_requests",
+              "text": "cost_per_1k",
+              "type": "number"
+            }
+          ],
+          "filters": [],
+          "computed_columns": [],
+          "global_query_id": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1.0
+              },
+              {
+                "color": "green",
+                "value": 0.01
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^cost_per_1k$/",
+          "values": false
+        }
+      }
+    }
+  ],
+  "refresh": "6h",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "aws",
+    "azure",
+    "billing",
+    "burn-rate",
+    "finops",
+    "gcp",
+    "multi-cloud"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Multi-cloud cost - MTD + burn rate",
+  "uid": "mcf-gcp-mtd",
+  "version": 13,
+  "weekStart": ""
+}
