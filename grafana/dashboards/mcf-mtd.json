@@ -297,7 +297,12 @@
         {
           "refId": "A",
           "rawSQL": "SELECT ROUND(COALESCE(SUM(line_item_unblended_cost), 0.0), 2) AS cost_usd FROM multi_cloud_finops.\"data\" WHERE billing_period = date_format(current_date, '%Y-%m')   AND line_item_line_item_type IN ('Usage', 'DiscountedUsage', 'SavingsPlanCoveredUsage', 'SavingsPlanRecurringFee', 'Fee')",
-          "format": "table"
+          "format": "table",
+          "connectionArgs": {
+            "region": "__default",
+            "catalog": "__default",
+            "database": "__default"
+          }
         }
       ],
       "fieldConfig": {
@@ -351,7 +356,12 @@
         {
           "refId": "A",
           "rawSQL": "WITH mtd AS (SELECT COALESCE(SUM(line_item_unblended_cost), 0.0) AS spend FROM multi_cloud_finops.\"data\" WHERE billing_period = date_format(current_date, '%Y-%m')   AND line_item_line_item_type IN ('Usage', 'DiscountedUsage', 'SavingsPlanCoveredUsage', 'SavingsPlanRecurringFee', 'Fee')), cal AS (SELECT day_of_month(current_date) AS d,        day_of_month(last_day_of_month(current_date)) AS dm) SELECT ROUND(  (mtd.spend / NULLIF(10.0, 0)) /   NULLIF(CAST(cal.d AS DOUBLE) / cal.dm, 0), 2) AS burn_rate FROM mtd, cal",
-          "format": "table"
+          "format": "table",
+          "connectionArgs": {
+            "region": "__default",
+            "catalog": "__default",
+            "database": "__default"
+          }
         }
       ],
       "fieldConfig": {
@@ -405,7 +415,12 @@
         {
           "refId": "A",
           "rawSQL": "WITH mtd AS (SELECT COALESCE(SUM(line_item_unblended_cost), 0.0) AS spend FROM multi_cloud_finops.\"data\" WHERE billing_period = date_format(current_date, '%Y-%m')   AND line_item_line_item_type IN ('Usage', 'DiscountedUsage', 'SavingsPlanCoveredUsage', 'SavingsPlanRecurringFee', 'Fee')), cal AS (SELECT day_of_month(current_date) AS d,        day_of_month(last_day_of_month(current_date)) AS dm) SELECT ROUND((mtd.spend / NULLIF(cal.d, 0)) * cal.dm, 2) AS projected FROM mtd, cal",
-          "format": "table"
+          "format": "table",
+          "connectionArgs": {
+            "region": "__default",
+            "catalog": "__default",
+            "database": "__default"
+          }
         }
       ],
       "fieldConfig": {
@@ -459,7 +474,12 @@
         {
           "refId": "A",
           "rawSQL": "SELECT product_servicecode AS service,        ROUND(SUM(line_item_unblended_cost), 4) AS cost_usd FROM multi_cloud_finops.\"data\" WHERE billing_period = date_format(current_date, '%Y-%m')   AND line_item_line_item_type IN ('Usage', 'DiscountedUsage', 'SavingsPlanCoveredUsage', 'SavingsPlanRecurringFee', 'Fee') GROUP BY product_servicecode ORDER BY cost_usd DESC LIMIT 20",
-          "format": "table"
+          "format": "table",
+          "connectionArgs": {
+            "region": "__default",
+            "catalog": "__default",
+            "database": "__default"
+          }
         }
       ],
       "fieldConfig": {
@@ -494,7 +514,12 @@
         {
           "refId": "A",
           "rawSQL": "SELECT date_trunc('day', line_item_usage_start_date) AS time,        product_servicecode AS metric,        SUM(line_item_unblended_cost) AS value FROM multi_cloud_finops.\"data\" WHERE billing_period IN (    date_format(current_date, '%Y-%m'),    date_format(current_date - interval '1' month, '%Y-%m')  )   AND line_item_usage_start_date >= current_date - interval '30' day   AND line_item_line_item_type IN ('Usage', 'DiscountedUsage', 'SavingsPlanCoveredUsage', 'SavingsPlanRecurringFee', 'Fee') GROUP BY 1, 2 ORDER BY 1",
-          "format": "table"
+          "format": "table",
+          "connectionArgs": {
+            "region": "__default",
+            "catalog": "__default",
+            "database": "__default"
+          }
         }
       ],
       "fieldConfig": {
