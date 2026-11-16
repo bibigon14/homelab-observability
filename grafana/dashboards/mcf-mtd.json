@@ -1140,7 +1140,7 @@
           "color": {
             "mode": "palette-classic"
           },
-          "noValue": "GKE Cost Allocation activated 2026-11-12 09:03 PT.\nFirst-time backfill up to 48h.\nPanel self-populates when goog-k8s-namespace\nsystem_labels appear in Detailed BQ export."
+          "noValue": "GKE Cost Allocation never populated goog-k8s-namespace labels.\nTwo attempts (~54h total cluster runtime, 2026-11-12 and 11-14..16)\nreturned 0 system_labels in the Detailed billing export.\nSee docs/incidents/2026-11-14-gke-cost-allocation-labels-did-not-populate.md"
         },
         "overrides": []
       },
