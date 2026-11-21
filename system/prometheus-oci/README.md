@@ -17,8 +17,10 @@ turned the retroactive loss into a predictable ~65 min daily gap; that
 was disabled 2026-09-16 after the postmortem, but leaving the WAL to
 grow unbounded is not viable either.
 
-Two Prometheus replicas scraping the same targets, both shipping to
-the same Thanos R2 bucket, let Thanos Query merge them at read time.
+Two Prometheus replicas scraping the same targets let Thanos Query merge
+them at read time. Since 2026-11-21 only replica A (Pi) uploads to R2;
+replica B's sidecar serves live queries over gRPC and keeps nothing in
+object storage (see "Long-term storage" below).
 When either replica has a gap (from a restart, WAL truncation, host
 outage, or a network blip), the other covers - Grafana shows
 continuous data.
@@ -47,7 +49,7 @@ Pi or full VictoriaMetrics migration.
        |  (on Pi)   |  |  (on Pi)|          |  (on OCI, WG)   |
        +------+-----+  +----+----+          +-------+---------+
               |             |                       |
-       +------v-----+       +---> R2 (long-term)    |
+       +------v-----+       +---> R2 (long-term)    |  (live only, no upload)
        | Prometheus |                               |
        | replica A  |                               |
        | (on Pi)    |                               |
@@ -129,13 +131,29 @@ sudo netfilter-persistent save
 
 Rules 9100 (ebpf-observer) and 9102 (traffic-gen) already existed.
 
+## Long-term storage
+
+Replica B does not upload to R2. Until 2026-11-21 it did, with
+`--shipper.upload-compacted` and the Pi's R2 key. Two problems:
+
+- `upload-compacted` shipped blocks that OCI Prometheus had compacted
+  locally, days after the fact. Those landed in the bucket as a
+  separate, late lineage.
+- The Pi compactor ran with `--deduplication.replica-label=replica`
+  (vertical compaction, one-to-one dedup). Late replica-B blocks made it
+  rebuild already-compacted history, which doubled its memory load on
+  the Pi and produced overlapping blocks.
+
+Fix: no objstore on this sidecar (`/etc/thanos/objstore.yml` removed
+from the VM), no replica-label dedup on the compactor. HA for live
+queries is unchanged; long-term history comes from replica A only.
+See `docs/postmortems/2026-11-21-thanos-silent-block-corruption.md`.
+
 ## Known gaps
 
 - Rule files are not auto-synced from repo (Pi is; OCI is not)
 - No systemd override for graceful shutdown TimeoutStopSec on the
   Thanos sidecar (Prometheus has it)
-- Sidecar ships to the same R2 bucket with the same credentials as
-  Pi's - separate keys per replica would be cleaner audit
 - The `up{job="prometheus"}` counts an extra series for
   OCI-self-scrape (10.0.0.4:9090). Pi does not scrape OCI's Prometheus
   yet; adding it symmetrically would fully close that gap

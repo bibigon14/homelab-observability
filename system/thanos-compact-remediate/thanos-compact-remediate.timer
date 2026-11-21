@@ -1,5 +1,5 @@
 [Unit]
-Description=Run thanos-compact auto-remediation every 2 minutes
+Description=Run thanos-compact corruption detector every 2 minutes
 
 [Timer]
 OnBootSec=5min

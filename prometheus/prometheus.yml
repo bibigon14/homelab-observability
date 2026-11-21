@@ -13,6 +13,11 @@ global:
       replica: 'a'
 # Alertmanager configuration
 alerting:
+  # Drop the HA replica label so Alertmanager dedups the same alert from
+  # replica a (Pi) and replica b (OCI) instead of notifying twice.
+  alert_relabel_configs:
+  - action: labeldrop
+    regex: replica
   alertmanagers:
   - static_configs:
     - targets: ['localhost:9093']

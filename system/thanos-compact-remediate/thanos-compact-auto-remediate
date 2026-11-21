@@ -1,43 +1,43 @@
 #!/usr/bin/env bash
-# Auto-remediate thanos-compact.service failures on the homelab Pi 5.
+# Detect and diagnose thanos-compact.service failures on the homelab Pi 5.
 #
-# Handles three failure modes:
-#   (1) systemd unit failed (crash-loop past StartLimitBurst, typically
-#       downsample CRC bug on compactor-source blocks)
-#   (2) thanos_compact_halted=1 (silent halt on compact-populate CRC error,
-#       process alive but idle, systemd sees it as healthy)
-#   (3) thanos_compact_downsample_failures_total delta above last tick
-#       (early detection before the process gives up)
+# DETECTION ONLY since 2026-11-21. The script no longer marks blocks or
+# restarts the service. Previous versions set no-downsample-mark.json /
+# no-compact-mark.json automatically, which silenced the alert but also
+# meant the affected range was never downsampled and was silently deleted
+# by raw retention (October 2026 was lost this way). See
+# docs/postmortems/2026-11-21-thanos-silent-block-corruption.md.
 #
-# In each case: parse the offending block ULID from journalctl, pick the
-# correct marker for the stage (no-downsample-mark.json vs
-# no-compact-mark.json), mark the block, restart the service, and post an
-# Alertmanager-shaped notification to the local telegram-bridge webhook.
+# Detection triggers (unchanged):
+#   (1) systemd unit failed (crash-loop past StartLimitBurst)
+#   (2) thanos_compact_halted=1 (process alive, internally stopped)
+#   (3) thanos_compact_downsample_failures_total increased with a
+#       checksum-shaped error in recent logs
 #
-# See docs/runbooks/thanos-compact.md and
-# docs/postmortems/2026-08-05-thanos-compact-checksum-cascade.md for
-# context on why this is necessary.
+# On detection: parse the offending block ULID and stage from journalctl,
+# decode the block creation time from the ULID, and post ONE alert per
+# (block, stage) per 24h to the local telegram-bridge webhook with the
+# suggested marker and the trade-off. A human decides what to do.
 
 set -euo pipefail
 
 SERVICE="thanos-compact.service"
 METRICS_URL="http://localhost:19194/metrics"
 OBJSTORE_CONFIG="/etc/thanos/objstore.yml"
-THANOS_BIN="/usr/local/bin/thanos"
 STATE_DIR="/var/lib/thanos-remediate"
 BRIDGE_URL="http://localhost:30119/webhook"
-MAX_ACTIONS_PER_HOUR=5
+DEDUP_SECONDS=86400
 TEXTFILE_PATH="/var/lib/prometheus/node-exporter/thanos-remediate.prom"
 RUNBOOK_BASE="https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md"
 
 mkdir -p "$STATE_DIR"
 
-log() { logger -t thanos-remediate -- "$*"; echo "[$(date -u +%FT%TZ)] $*" >&2; }
+log() { echo "$*" >&2; }
 
 # Write cumulative counter to node_exporter textfile collector.
 # Atomic via tmp+mv. result label values:
-#   not_needed, succeeded, gave_up, rate_limited, mark_failed,
-#   service_down, transient_skipped
+#   not_needed, reported, already_reported, unidentified,
+#   transient_skipped
 # Keeps running totals in STATE_DIR; written on every exit path.
 write_textfile_metric() {
     local result="$1"
@@ -107,7 +107,31 @@ read_metric() {
         | awk '{sum += $NF} END {print int(sum+0)}'
 }
 
-# --- Decide if remediation is needed ---
+# Decode the creation time (unix seconds) from the first 10 chars of a ULID.
+ulid_epoch() {
+    local alphabet="0123456789ABCDEFGHJKMNPQRSTVWXYZ" u="$1" t=0 i c prefix
+    for ((i = 0; i < 10; i++)); do
+        c="${u:i:1}"
+        prefix="${alphabet%%"$c"*}"
+        t=$((t * 32 + ${#prefix}))
+    done
+    echo $((t / 1000))
+}
+
+# One alert per key per DEDUP_SECONDS.
+REPORTED_LOG="$STATE_DIR/reported.log"
+already_reported() {
+    local key="$1" cutoff=$(( $(date +%s) - DEDUP_SECONDS ))
+    touch "$REPORTED_LOG"
+    awk -v c="$cutoff" '$1 > c' "$REPORTED_LOG" > "$REPORTED_LOG.tmp" && mv "$REPORTED_LOG.tmp" "$REPORTED_LOG"
+    grep -qF " $key" "$REPORTED_LOG"
+}
+remember_reported() { echo "$(date +%s) $1" >> "$REPORTED_LOG"; }
+
+# Strip characters that would break the hand-built JSON payload.
+json_safe() { tr -d '"\\' <<<"$1"; }
+
+# --- Decide if attention is needed ---
 NEEDS=0; TRIGGER=""; REASON=""
 
 if systemctl is-failed --quiet "$SERVICE"; then
@@ -146,24 +170,7 @@ if [ "$NEEDS" -eq 0 ]; then
     exit 0
 fi
 
-log "remediation needed: $TRIGGER / $REASON"
-
-# --- Rate limit ---
-RATE_LOG="$STATE_DIR/actions.log"
-touch "$RATE_LOG"
-NOW=$(date +%s)
-CUTOFF=$((NOW - 3600))
-awk -v c="$CUTOFF" '$1 > c' "$RATE_LOG" > "$RATE_LOG.tmp" && mv "$RATE_LOG.tmp" "$RATE_LOG"
-COUNT=$(wc -l < "$RATE_LOG")
-if [ "$COUNT" -ge "$MAX_ACTIONS_PER_HOUR" ]; then
-    log "rate limit hit ($COUNT/${MAX_ACTIONS_PER_HOUR})"
-    send_alert "ThanosAutoRemediateRateLimit" "critical" \
-        "Auto-remediate rate limit hit" \
-        "${COUNT} actions in last hour, giving up. Latest trigger: ${TRIGGER}. Manual intervention required." \
-        "rate-limit-hit"
-    write_textfile_metric "rate_limited"
-    exit 1
-fi
+log "attention needed: $TRIGGER / $REASON"
 
 # --- Identify block and stage from recent logs ---
 RECENT_LOG=$(journalctl -u "$SERVICE" --since "1 hour ago" --no-pager 2>/dev/null)
@@ -238,73 +245,40 @@ fi
 # a line number or other garbage leaked from an upstream parsing step.
 if [ -z "$BLOCK_ID" ] || [ -z "$MARKER" ] \
    || ! echo "$BLOCK_ID" | grep -qE "^[0-9A-Z]{26}$"; then
-    log "cannot identify valid block ULID / stage from logs"
-    send_alert "ThanosAutoRemediateGaveUp" "critical" \
-        "Cannot identify block/stage" \
-        "Trigger: ${TRIGGER}. Reason: ${REASON}. Manual investigation required." \
-        "alert-thanosautoremediategaveup"
-    write_textfile_metric "gave_up"
-    exit 1
-fi
-
-DETAILS="auto-remediate $(date -u +%FT%TZ): ${DETAILS_LINE:-$REASON}"
-log "marking $BLOCK_ID with $MARKER"
-
-# --- Mark the block ---
-if ! "$THANOS_BIN" tools bucket mark \
-    --id="$BLOCK_ID" \
-    --objstore.config-file="$OBJSTORE_CONFIG" \
-    --marker="$MARKER" \
-    --details="$DETAILS" >>"$STATE_DIR/mark.log" 2>&1; then
-    log "mark failed for $BLOCK_ID"
-    send_alert "ThanosAutoRemediateFailed" "critical" \
-        "Failed to mark block ${BLOCK_ID}" \
-        "Trigger: ${TRIGGER}. Marker: ${MARKER}. Check /var/lib/thanos-remediate/mark.log." \
-        "alert-thanosautoremediatefailed"
-    write_textfile_metric "mark_failed"
-    exit 1
-fi
-
-# --- Restart based on trigger ---
-if [ "$TRIGGER" = "failed" ]; then
-    systemctl reset-failed "$SERVICE" || true
-    systemctl start "$SERVICE" || true
-else
-    # halted/downsample_fail: process alive but stuck; SIGTERM hangs, use SIGKILL
-    log "using SIGKILL (compact may be halted, SIGTERM hangs)"
-    systemctl kill --signal=SIGKILL "$SERVICE" || true
-    sleep 3
-    systemctl reset-failed "$SERVICE" 2>/dev/null || true
-    systemctl start "$SERVICE" || true
-fi
-
-echo "$NOW $TRIGGER $BLOCK_ID $MARKER" >> "$RATE_LOG"
-
-# --- Verify recovery ---
-sleep 30
-if systemctl is-active --quiet "$SERVICE"; then
-    HALTED_NOW=$(read_metric "thanos_compact_halted"); HALTED_NOW=${HALTED_NOW:-0}
-    if [ "$HALTED_NOW" -eq 1 ]; then
-        STATUS="active but halted=1 (another bad block?)"
-        SEV="critical"
-    else
-        STATUS="active, halted=0, recovery successful"
-        SEV="info"
+    KEY="unidentified:${TRIGGER}"
+    if already_reported "$KEY"; then
+        write_textfile_metric "already_reported"
+        exit 0
     fi
-else
-    STATUS="NOT active after 30s"
-    SEV="critical"
+    log "cannot identify block ULID / stage from logs"
+    send_alert "ThanosCompactNeedsAttention" "critical" \
+        "thanos-compact unhealthy, offending block not identified" \
+        "Trigger: ${TRIGGER}. Reason: ${REASON}. Detection only: nothing was marked or restarted. Investigate manually." \
+        "manual-recovery"
+    remember_reported "$KEY"
+    write_textfile_metric "unidentified"
+    exit 0
 fi
 
-send_alert "ThanosCompactAutoRemediated" "$SEV" \
-    "Auto-remediated: ${TRIGGER} on ${BLOCK_ID}" \
-    "Trigger: ${TRIGGER}. Block: ${BLOCK_ID}. Marker: ${MARKER}. Details: ${DETAILS_LINE:-none}. Service: ${STATUS}." \
-    "auto-remediation"
-
-if [ "$SEV" = "info" ]; then
-    write_textfile_metric "succeeded"
-else
-    write_textfile_metric "service_down"
+if [ "$MARKER" = "no-downsample-mark.json" ]; then STAGE="downsample"; else STAGE="compact"; fi
+KEY="${BLOCK_ID}:${STAGE}"
+if already_reported "$KEY"; then
+    write_textfile_metric "already_reported"
+    exit 0
 fi
 
-log "done: $BLOCK_ID $MARKER, $STATUS"
+CREATED=$(ulid_epoch "$BLOCK_ID")
+CREATED_ISO=$(date -d "@${CREATED}" '+%Y-%m-%d %H:%M %Z')
+AGE_H=$(( ( $(date +%s) - CREATED ) / 3600 ))
+DETAILS_SAFE=$(json_safe "${DETAILS_LINE:-$REASON}")
+
+log "corrupt block: $BLOCK_ID stage=$STAGE created=$CREATED_ISO age=${AGE_H}h details=$DETAILS_SAFE"
+
+send_alert "ThanosCompactCorruptBlock" "critical" \
+    "Block ${BLOCK_ID} fails at ${STAGE} stage" \
+    "Block ${BLOCK_ID} (created ${CREATED_ISO}, ${AGE_H}h ago) fails at ${STAGE}: ${DETAILS_SAFE}. Trigger: ${TRIGGER}. Detection only: nothing was marked or restarted. Setting ${MARKER} stops the crash loop, but then the block range is never downsampled and is deleted by raw retention. Decide per runbook." \
+    "corrupt-block"
+
+remember_reported "$KEY"
+write_textfile_metric "reported"
+exit 0
