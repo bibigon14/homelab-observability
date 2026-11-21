@@ -1,5 +1,5 @@
 [Unit]
-Description=Thanos Compact auto-remediation
+Description=Thanos Compact corruption detector (detection only, no bucket writes)
 Documentation=https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md
 
 [Service]
