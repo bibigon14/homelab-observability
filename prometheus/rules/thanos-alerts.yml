@@ -58,6 +58,16 @@ groups:
           summary: "Thanos Query target unreachable"
           description: "Prometheus cannot scrape thanos-query for over 5 minutes - Grafana's Thanos datasource will fail."
 
+      - alert: ThanosCompactDownsampleBacklog
+        expr: max(thanos_compact_todo_downsample_blocks) > 0
+        for: 6h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} raw blocks have no 5m downsample for 6h+"
+          runbook_url: "https://github.com/bibigon14/homelab-observability/blob/main/docs/runbooks/thanos-compact.md#downsample-backlog"
+          description: "Raw blocks old enough for 5m downsampling still have none. Either downsample keeps failing or the blocks carry no-downsample-mark.json (the gauge ignores markers). Unless fixed, these ranges are deleted at raw retention (30d) with no 5m/1h copy - this is how October 2026 was lost."
+
       - alert: ThanosCompactAutoRemediateStale
         expr: time() - thanos_compact_auto_remediate_last_run_timestamp_seconds > 600
         for: 5m

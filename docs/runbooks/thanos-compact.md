@@ -312,6 +312,7 @@ Each alert's `runbook_url` annotation points to one of these anchors.
 | `ThanosCompactDown` | [`#alert-thanoscompactdown`](#alert-thanoscompactdown) |
 | `ThanosCompactCorruptBlock` | [`#corrupt-block`](#corrupt-block) |
 | `ThanosCompactNeedsAttention` | [`#manual-recovery`](#manual-recovery) |
+| `ThanosCompactDownsampleBacklog` | [`#downsample-backlog`](#downsample-backlog) |
 | `ThanosCompactAutoRemediateStale` | [`#timer-not-running`](#timer-not-running) |
 
 ---
@@ -402,6 +403,38 @@ A specific block fails compaction or downsample with a checksum error.
 Nothing was changed automatically. Go to [Manual recovery](#manual-recovery),
 step 0. One alert per (block, stage) per 24h; more than one block in a
 day points at the host, not at Thanos.
+
+<a id="downsample-backlog"></a>
+### downsample-backlog (ThanosCompactDownsampleBacklog)
+
+`thanos_compact_todo_downsample_blocks` has been above zero for 6h. The
+gauge counts raw blocks that are old enough for 5m downsampling and have
+none, **including blocks marked `no-downsample-mark.json`** (the
+downsampler skips those silently, even at debug log level).
+
+Every block in this set loses its range at raw retention (30d) unless it
+gets a 5m copy first. Find out which case applies:
+
+```bash
+# Is downsample failing right now?
+curl -s localhost:19194/metrics | grep -E '^thanos_compact_downsample_(total|failures_total)'
+sudo journalctl -u thanos-compact --since "-3h" --no-pager | grep -iE 'downsample block|checksum' | tail
+
+# Raw blocks >= 40h (candidates); compare against 5m blocks covering the same range
+sudo thanos tools bucket ls --objstore.config-file=/etc/thanos/objstore.yml -o wide --exclude-delete \
+  | grep -E 'Downsample: (0|300000),'
+```
+
+Removing `no-downsample-mark.json` from a candidate (`--remove`) and
+restarting the compactor is a safe probe: a healthy block gets its 5m
+copy, a corrupt one fails with a checksum error and the corruption
+detector reports it.
+
+Known accepted backlog: five corrupt raw blocks from 2026-11-01..12
+(`01M6N6GV`, `01M6TA1Q`, `01M6ZG0E`, `01M74HZ1`, `01M79QBH`) are marked
+and expire around 2026-12-12. The alert is silenced in Alertmanager
+until 2026-12-15 with that comment; if it fires after the silence
+expires, it is a new backlog.
 
 <a id="alert-thanosautoremediategaveup"></a>
 <a id="alert-thanosautoremediateratelimit"></a>
