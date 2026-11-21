@@ -1,5 +1,11 @@
 # Postmortem: Thanos Compact checksum cascade
 
+> **Superseded in part (2026-11-21).** The "upstream Thanos bug" root cause
+> below was wrong or incomplete: the corruption originates on the host, and
+> the auto-remediation introduced here silently cost ~3 weeks of long-term
+> data. See [2026-11-21-thanos-silent-block-corruption.md](2026-11-21-thanos-silent-block-corruption.md).
+
+
 - **Date:** 2026-08-04 to 2026-08-05
 - **Duration:** ~10 hours of degraded compaction/downsampling across three
   separate incidents; ingestion and query paths unaffected throughout
