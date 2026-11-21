@@ -5,6 +5,9 @@ Description=Thanos Compactor
 After=network-online.target
 
 [Service]
+# raw retention 30d (was 15d until 2026-11-21): raw must outlive the time a
+# block needs to reach downsampling, with margin for a stalled compactor.
+# No --deduplication.replica-label: only replica A uploads to R2.
 TimeoutStopSec=300
 User=prometheus
 Group=prometheus
@@ -17,7 +20,7 @@ ExecStart=/usr/local/bin/thanos compact \
   --compact.cleanup-interval=1h \
   --compact.progress-interval=1h \
   --block-viewer.global.sync-block-interval=1h \
-  --retention.resolution-raw=15d \
+  --retention.resolution-raw=30d \
   --retention.resolution-5m=60d \
   --retention.resolution-1h=90d
 Restart=on-failure

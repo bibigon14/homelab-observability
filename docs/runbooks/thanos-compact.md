@@ -3,22 +3,22 @@
 Operational reference for the `thanos-compact.service` running on `homebridge`
 (Raspberry Pi 5) against Cloudflare R2 bucket `homelab-thanos`.
 
-Covers three known failure modes, the auto-remediation system that handles
-them, and the manual fallback procedure.
+Covers three known failure modes, the corruption detector that reports
+them, and the manual recovery procedure.
 
 ---
 
 ## TL;DR
 
-If `thanos-compact` is broken and you just want it fixed:
+If `thanos-compact` is broken:
 
-1. Look at the most recent `ThanosCompact*` alert in Telegram to identify the
-   failure mode.
-2. In most cases, the `thanos-compact-remediate` timer will handle it within
-   ~2 minutes. Check for a `ThanosCompactAutoRemediated` alert.
-3. If auto-remediate gave up (see `ThanosAutoRemediateGaveUp` /
-   `RateLimit` / `Failed` alerts), follow the manual recovery in
-   [Manual recovery](#manual-recovery).
+1. Look for a `ThanosCompactCorruptBlock` alert in Telegram. It names the
+   block ULID, the failing stage, the block age and the checksum detail.
+   Nothing has been changed automatically.
+2. Follow [Manual recovery](#manual-recovery). Step 0 is a decision, not
+   a command: a marker is a data-retention decision.
+3. A cluster of corrupt blocks in a short window is a host problem, not a
+   Thanos bug. See [Why this keeps happening](#why-this-keeps-happening).
 
 ---
 
@@ -30,7 +30,11 @@ If `thanos-compact` is broken and you just want it fixed:
 - Object store is Cloudflare R2; config at `/etc/thanos/objstore.yml`.
 - Local state (working dir) is `/var/lib/thanos/compact/`. Discardable —
   Thanos cleans partial uploads on boot.
-- Retention: raw 15d, 5m 60d, 1h 90d.
+- Retention: raw 30d, 5m 60d, 1h 90d (raw was 15d until 2026-11-21; it
+  left too little margin for downsampling when compaction stalls).
+- No `--deduplication.replica-label` (removed 2026-11-21). Only replica
+  `a` (the Pi) uploads to R2; the OCI replica `b` sidecar serves live
+  queries only.
 - HTTP `/metrics` is on `:19194`. Prometheus scrapes locally.
 
 ---
@@ -97,6 +101,22 @@ can produce two of them; the third is a downstream effect.
 
 ## Why this keeps happening
 
+> **Correction 2026-11-21.** The analysis below (kept for history) concluded
+> these were an upstream Thanos read-path bug on otherwise-valid blocks.
+> That was wrong, or at best incomplete. On 2026-11-19..21 every raw block
+> written in early November failed downsample deterministically, a fresh
+> compactor output contained ASCII text (`.com`) where a chunk CRC should
+> be, and an unrelated Python CronJob on the same host read NUL bytes from
+> a library file that is intact on disk. The common factor is the Pi 5
+> host (memory path), not Thanos. The bootloader EEPROM (SDRAM init) was
+> six months out of date and was updated on 2026-11-21. See
+> [`docs/postmortems/2026-11-21-thanos-silent-block-corruption.md`](../postmortems/2026-11-21-thanos-silent-block-corruption.md).
+>
+> Practical consequence: treat a checksum error as "this block is really
+> corrupt", and treat several in a short window as a host incident.
+
+### Original analysis (superseded)
+
 These `checksum mismatch` failures are **not** local corruption. Verified
 across three separate incidents:
 
@@ -127,117 +147,68 @@ At the current load the pattern repeats roughly 1–2 times per month.
 
 ---
 
-## Auto-remediation
+## Corruption detector
 
-The `thanos-compact-remediate` systemd timer runs a bash script every
-2 minutes to detect and fix all three failure modes automatically.
+The `thanos-compact-remediate` systemd timer runs
+`/usr/local/bin/thanos-compact-auto-remediate` every 2 minutes. Since
+2026-11-21 it is **detection only**: it never marks blocks, never
+restarts the service and never writes to R2. Names are kept from the
+auto-remediation era so installs and dashboards keep working.
 
-### Files
+Triggers: unit `failed`, `thanos_compact_halted == 1`, or
+`thanos_compact_downsample_failures_total` increased together with a
+checksum-shaped error in recent logs.
 
-| Path | Purpose |
-|------|---------|
-| `/usr/local/bin/thanos-compact-auto-remediate` | The remediation script |
-| `/etc/systemd/system/thanos-compact-remediate.service` | Oneshot unit |
-| `/etc/systemd/system/thanos-compact-remediate.timer` | 2-minute interval |
-| `/var/lib/thanos-remediate/last_downsample_failures` | Last observed counter |
-| `/var/lib/thanos-remediate/actions.log` | Rate-limit tracking |
-| `/var/lib/thanos-remediate/mark.log` | Full output of `thanos tools bucket mark` calls |
+On trigger it parses the block ULID and stage from `journalctl` (all
+Thanos 0.41 and 0.42+ wordings, see the bundle README), decodes the
+block creation time from the ULID and posts one `ThanosCompactCorruptBlock`
+alert per (block, stage) per 24h. Dedup state lives in
+`/var/lib/thanos-remediate/reported.log`.
 
-### Trigger logic
+Why it no longer marks: a marker silenced the crash loop and the alert,
+but `no-downsample-mark.json` on a raw block means the range never gets
+5m/1h and is deleted by raw retention. That is how October 2026 was lost,
+and how five corrupt November blocks sat unnoticed behind markers.
 
-Each tick:
-
-1. If `systemctl is-failed thanos-compact` — trigger `failed`.
-2. Else if `thanos_compact_halted == 1` — trigger `halted`.
-3. Else if `thanos_compact_downsample_failures_total` (summed across
-   resolutions) is higher than the value from the previous tick —
-   trigger `downsample_fail`.
-4. Otherwise — no-op, exit 0.
-
-### Remediation logic
-
-When triggered:
-
-1. Rate limit: if 5+ actions were taken in the last hour, alert and
-   give up. Prevents runaway loops from a broken script.
-2. Parse block ULID and stage from `journalctl -u thanos-compact
-   --since "1 hour ago"`:
-   - `"downsample block <ULID>"` → mark as `no-downsample-mark.json`
-   - `"from block <ULID>"` → mark as `no-compact-mark.json`
-3. Run `thanos tools bucket mark` with the correct marker and a
-   `details` string that captures the observed `expected:X actual:Y`
-   for future forensics.
-4. Restart the service:
-   - For `failed`: `systemctl reset-failed` + `start`
-   - For `halted` / `downsample_fail`: `SIGKILL` + `start`
-     (SIGTERM hangs on halted process)
-5. Wait 30 seconds. Verify `is-active` and `halted=0`.
-6. POST an `ThanosCompactAutoRemediated` alert with the trigger,
-   block ID, marker used, and final service status to the
-   `alertmanager-telegram-bridge` (k3s `apps/bridge`, NodePort 30119).
-
-### Notifications
-
-The script does not talk to Telegram directly. It POSTs
-Alertmanager-shaped JSON to the local webhook of the same bridge that
-Alertmanager itself uses. Bot token stays in the k3s secret, not on
-the Pi filesystem.
-
-Alerts the script can emit:
-
-| Alertname | Severity | Meaning |
-|-----------|----------|---------|
-| `ThanosCompactAutoRemediated` | info | Successful remediation |
-| `ThanosCompactAutoRemediated` | critical | Service didn't come back up |
-| `ThanosAutoRemediateRateLimit` | critical | 5+ actions in last hour, giving up |
-| `ThanosAutoRemediateGaveUp` | critical | Could not identify block/stage from logs |
-| `ThanosAutoRemediateFailed` | critical | `thanos tools bucket mark` failed |
-
-### Operations
-
-**Status:**
+**Audit trail of the old behaviour** (only record of what was marked):
 
 ```bash
-sudo systemctl status thanos-compact-remediate.timer
-sudo systemctl list-timers | grep thanos
-```
-
-**Recent runs:**
-
-```bash
-sudo journalctl -u thanos-compact-remediate.service --since "1 hour ago" --no-pager
-```
-
-**Manual run (for testing):**
-
-```bash
-sudo systemctl start thanos-compact-remediate.service
-sudo journalctl -u thanos-compact-remediate.service -n 30 --no-pager
-```
-
-**Disable temporarily** (e.g. during manual debugging):
-
-```bash
-sudo systemctl stop thanos-compact-remediate.timer
-# ...do stuff...
-sudo systemctl start thanos-compact-remediate.timer
-```
-
-**See what has been marked and why:**
-
-```bash
+sudo cat /var/lib/thanos-remediate/actions.log   # <ts> <trigger> <ulid> <marker>
 sudo tail -100 /var/lib/thanos-remediate/mark.log
-sudo cat /var/lib/thanos-remediate/actions.log
 ```
 
-`actions.log` format: `<unix_ts> <trigger> <block_ulid> <marker>`.
+**Operations:**
+
+```bash
+sudo systemctl list-timers | grep thanos-compact-remediate
+sudo journalctl -u thanos-compact-remediate.service --since "1 hour ago" --no-pager
+sudo systemctl start thanos-compact-remediate.service   # manual run
+```
 
 ---
 
 ## Manual recovery
 
-Use this if auto-remediate gave up, is disabled, or when investigating
-a new failure signature that the script doesn't recognize.
+### 0. Decide before you mark
+
+A checksum error means the block is corrupt. Options, best first:
+
+1. **Sources still exist** (block younger than `--delete-delay`, 48h, and
+   compact stopped so the cleaner has not run): delete the corrupt output
+   (`--marker=deletion-mark.json`), remove `deletion-mark.json` from its
+   sources (`--remove`), and let the compactor rebuild it. To avoid an
+   overlap halt from the 24h deletion-mark filter delay, purge right away
+   with `thanos tools bucket cleanup --delete-delay=0s` (irreversible for
+   everything currently marked).
+2. **Range is duplicated elsewhere** (another lineage covers it): mark the
+   corrupt block for deletion.
+3. **Only copy:** mark it (`no-downsample` / `no-compact`). Raw stays
+   queryable apart from the corrupt series, but the range gets no 5m/1h
+   and disappears when raw retention expires. Note the date.
+
+If several blocks fail within hours, stop `thanos-compact` first: the
+compactor may be writing new corrupt blocks and marking good sources for
+deletion as it goes.
 
 ### 1. Identify the failure mode
 
@@ -267,8 +238,9 @@ sudo thanos tools bucket verify \
     -i index_known_issues
 ```
 
-Expect: `verify task completed`, no errors. This confirms the block
-itself is fine and the bug is in Thanos's read path.
+Expect: `verify task completed`, no errors. This only checks the index;
+it does not read chunks, so a clean result does not prove the block is
+intact (all five corrupt November blocks were verify-clean).
 
 ### 4. Mark the block
 
@@ -338,10 +310,8 @@ Each alert's `runbook_url` annotation points to one of these anchors.
 | `ThanosCompactHalted` | [`#alert-thanoscompacthalted`](#alert-thanoscompacthalted) |
 | `ThanosCompactFailed` | [`#alert-thanoscompactfailed`](#alert-thanoscompactfailed) |
 | `ThanosCompactDown` | [`#alert-thanoscompactdown`](#alert-thanoscompactdown) |
-| `ThanosAutoRemediateGaveUp` / `ThanosCompactAutoRemediateGaveUp` | [`#alert-thanosautoremediategaveup`](#alert-thanosautoremediategaveup) |
-| `ThanosAutoRemediateRateLimit` / `ThanosCompactAutoRemediateRateLimit` | [`#alert-thanosautoremediateratelimit`](#alert-thanosautoremediateratelimit) |
-| `ThanosAutoRemediateFailed` / `ThanosCompactAutoRemediateMarkFailed` | [`#alert-thanosautoremediatefailed`](#alert-thanosautoremediatefailed) |
-| `ThanosCompactAutoRemediated` | [`#auto-remediation`](#auto-remediation) |
+| `ThanosCompactCorruptBlock` | [`#corrupt-block`](#corrupt-block) |
+| `ThanosCompactNeedsAttention` | [`#manual-recovery`](#manual-recovery) |
 | `ThanosCompactAutoRemediateStale` | [`#timer-not-running`](#timer-not-running) |
 
 ---
@@ -425,37 +395,25 @@ See [Failure mode 1](#1-thanoscompactfailed--systemd-killed-the-unit) above and 
 
 Downstream signal, not root cause. First check if `ThanosCompactFailed` or `ThanosCompactHalted` is also firing - see [Failure mode 3](#3-thanoscompactdown--scrape-target-unreachable).
 
+<a id="corrupt-block"></a>
+### corrupt-block (ThanosCompactCorruptBlock)
+
+A specific block fails compaction or downsample with a checksum error.
+Nothing was changed automatically. Go to [Manual recovery](#manual-recovery),
+step 0. One alert per (block, stage) per 24h; more than one block in a
+day points at the host, not at Thanos.
+
 <a id="alert-thanosautoremediategaveup"></a>
-### alert-thanosautoremediategaveup
-
-The auto-remediate script detected a failure but could not parse the offending block ULID from logs. Follow [Manual recovery](#manual-recovery). If this is a new log wording not covered by fallbacks 1-4, see [Fallback 4](#fallback-4-compact-stage-filesystem-path-thanos-042) for debug hints and consider a follow-up PR.
-
 <a id="alert-thanosautoremediateratelimit"></a>
-### alert-thanosautoremediateratelimit
-
-Script took 5+ remediation actions in the last hour and bailed. **Do not just unblock it** - investigate first:
-
-    sudo cat /var/lib/thanos-remediate/actions.log
-
-If the trigger pattern is suspicious (same block repeatedly, or `downsample_fail` without checksum in logs), the script may have a bug or upstream regressed. Only after understanding the pattern:
-
-    sudo rm /var/lib/thanos-remediate/actions.log  # resets rate limit
-
 <a id="alert-thanosautoremediatefailed"></a>
-### alert-thanosautoremediatefailed
-
-The `thanos tools bucket mark` call itself failed. Likely causes: R2 credentials expired/rotated, network, or `objstore.yml` config broken.
-
-    sudo tail -50 /var/lib/thanos-remediate/mark.log
-    sudo python3 -c "import yaml; yaml.safe_load(open('/etc/thanos/objstore.yml'))"  # structure check
-    curl -s http://localhost:19194/metrics | grep thanos_objstore_bucket_operation_failures_total
-
-Do not `sudo cat /etc/thanos/objstore.yml` - credentials leak risk, see homelab-observability README notes on secret file handling.
-
 <a id="auto-remediation"></a>
-### auto-remediation (ThanosCompactAutoRemediated)
+### Legacy auto-remediation alerts
 
-Informational alert from a successful (or failed-to-recover) auto-remediate run. See [Auto-remediation](#auto-remediation-1) section above for the full flow.
+`ThanosAutoRemediateGaveUp`, `ThanosAutoRemediateRateLimit`,
+`ThanosAutoRemediateFailed`, `ThanosCompactAutoRemediated` and their
+`ThanosCompactAutoRemediate*` Prometheus twins were retired on
+2026-11-21 together with automatic marking. Anchors are kept so old
+Telegram messages still resolve.
 
 <a id="timer-not-running"></a>
 ### timer-not-running

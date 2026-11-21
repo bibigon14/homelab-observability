@@ -5,15 +5,18 @@ After=prometheus.service
 Requires=prometheus.service
 
 [Service]
+# Live-query only since 2026-11-21: no --objstore.config-file, so nothing
+# is uploaded to R2. Long-term storage comes from replica A (Pi) alone.
+# Previously this sidecar also uploaded with --shipper.upload-compacted,
+# which pushed locally compacted level-2 blocks days late and made the
+# Pi compactor rebuild history across two lineages.
 User=prometheus
 Group=prometheus
 ExecStart=/opt/thanos/thanos sidecar \
   --tsdb.path=/var/lib/prometheus/metrics2 \
   --prometheus.url=http://localhost:9090 \
-  --objstore.config-file=/etc/thanos/objstore.yml \
   --http-address=0.0.0.0:19191 \
   --grpc-address=0.0.0.0:10901 \
-  --shipper.upload-compacted \
   --log.level=info
 
 Restart=on-failure
