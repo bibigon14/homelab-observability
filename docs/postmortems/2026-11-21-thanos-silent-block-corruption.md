@@ -212,9 +212,9 @@ object did not change after upload.
 - [ ] If corruption returns: disable zram (`/etc/rpi/swap.conf`), then a
   long `stressapptest -M 5000` with the stack stopped. If that fails,
   move compactor and Prometheus off the Pi.
-- [ ] Install rules from the repo instead of hand-copied files in
-  `/etc/prometheus/rules` (same drift class as the remediation unit on
-  10-12).
+- [x] Install rules from the repo instead of hand-copied files:
+  `make deploy-rules` deploys `prometheus/rules/` to both replicas
+  (2026-11-23, after a stale OCI copy kept `KubePodNotReady` firing).
 - [x] Pointer added to `2026-08-05-thanos-compact-checksum-cascade.md`.
 - [ ] Correct
   `2026-09-14-slo-rules-rolling-window-gaps.md` (WAL corruption) with a

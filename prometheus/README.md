@@ -7,7 +7,7 @@ Bare-metal Prometheus for the Raspberry Pi 5 homelab.
 - **Version**: 3.14.0 (upstream tarball, linux-arm64)
 - **Binary**: `/opt/prometheus/prometheus`
 - **Config**: `/etc/prometheus/prometheus.yml` (this repo: `prometheus.yml`)
-- **Rules**: `/etc/prometheus/rules/*.yml` (this repo: `../alerting/`)
+- **Rules**: `/etc/prometheus/rules/*.yml` (this repo: `rules/`, deployed to both HA replicas with `make deploy-rules`)
 - **TSDB**: `/var/lib/prometheus/metrics2` (non-default, kept for
   continuity from the original box setup)
 - **Systemd unit**: from the Debian `prometheus` package (all its

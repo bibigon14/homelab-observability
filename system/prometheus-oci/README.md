@@ -104,19 +104,21 @@ sudo systemctl reload-or-restart prometheus thanos-sidecar
 
 ## Rule files and alerts.yml
 
-The rule files under `/etc/prometheus/rules/` on OCI come from the Pi
-via one-shot rsync:
+Rule files under `/etc/prometheus/rules/` on both replicas are deployed
+from this repo with one command (run on the Mac, from the repo root):
 
 ```bash
-ssh bibigon88@homebridge 'sudo tar -C /etc/prometheus/rules -cf - .' | \
-    ssh -i ~/.ssh/id_ed25519_oracle ubuntu@163.192.1.153 \
-        'sudo tar -C /etc/prometheus/rules -xf -'
-ssh bibigon88@homebridge 'sudo cat /etc/prometheus/alerts.yml' | \
-    ssh -i ~/.ssh/id_ed25519_oracle ubuntu@163.192.1.153 \
-        'sudo tee /etc/prometheus/alerts.yml >/dev/null'
+make diff-rules     # what would change on pi and oci
+make deploy-rules   # promtool check, install, SIGHUP, verify reload
 ```
 
-Not automated yet - see follow-ups in the ADR.
+Both replicas must run identical rules. Alerts from the pair are merged
+(`alert_relabel_configs` drops `replica`), so a stale rule on either host
+keeps a fixed alert firing. On 2026-11-23 that is exactly what happened
+with `KubePodNotReady`.
+
+`/etc/prometheus/alerts.yml` is still unmanaged; `make diff-rules` prints
+its hash on each host so drift is visible.
 
 ## Firewall
 
