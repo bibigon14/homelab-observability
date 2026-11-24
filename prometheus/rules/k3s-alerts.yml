@@ -15,6 +15,11 @@ groups:
           sum by (namespace, pod) (
             max by (namespace, pod) (kube_pod_status_phase{namespace=~"apps|monitoring", phase=~"Pending|Unknown|Failed"}) == 1
           )
+          # Pods owned by Jobs (CronJob runs) are excluded: a failed run stays
+          # in phase Failed until ttlSecondsAfterFinished (24h) and would
+          # re-notify hourly. Job failures are covered by KubeJobFailed and
+          # the SLOCronJobBurnRate* alerts.
+          unless on (namespace, pod) kube_pod_owner{owner_kind="Job"}
         for: 10m
         labels:
           severity: warning
