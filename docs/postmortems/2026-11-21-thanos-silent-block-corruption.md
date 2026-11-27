@@ -206,7 +206,7 @@ object did not change after upload.
 
 ## Action items
 
-- [ ] **Watch the next two weeks.** Success: `thanos_compact_downsample_total{resolution="0"}`
+- [x] **Watch the next two weeks.** Failed on day 5, see Update 2026-11-26. Success: `thanos_compact_downsample_total{resolution="0"}`
   grows, `downsample_failures_total` stays 0, no `ThanosCompactCorruptBlock`,
   no WAL corruption in Prometheus.
 - [ ] If corruption returns: disable zram (`/etc/rpi/swap.conf`), then a
@@ -222,6 +222,33 @@ object did not change after upload.
 - [ ] Three small live blocks (`01M6NB2N`, `01M7T1HP`, `01M7D5SQ`) carry
   `no-compact` and are under 40h, so they can never be downsampled. Decide
   whether to remove the markers; otherwise they expire with the rest.
+
+## Update 2026-11-26: firmware did not fix it
+
+- The first two 48h blocks compacted after the EEPROM update downsampled
+  cleanly (2026-11-22, 2026-11-24).
+- 2026-11-26 06:14: compactor halted on `checksum mismatch` in
+  `01M8BHAP`, a 2h block written by Prometheus on the Pi and uploaded by
+  the sidecar. Prometheus had compacted the same window locally at 03:01
+  without error, so the local copy was intact: the corruption happened
+  on the upload path, in memory. Marked `no-compact`.
+- 2026-11-26 04:01: Prometheus WAL segment 168 failed its checksum on
+  replay (`unexpected checksum 1732e2f4, expected 7bfb3062`) and every
+  newer segment was deleted. The 05:00 checkpoint failed on the same
+  corruption.
+- The 04:01 restart came from `prometheus-daily-restart.timer`. It was
+  disabled on 2026-09-16 (see `2026-09-14-slo-rules-rolling-window-gaps.md`)
+  but re-enabled on 2026-09-25 21:05, the evening the OCI replica was
+  set up (`system/prometheus-oci/` ships the same timer). From then on,
+  every latent WAL corruption on the Pi became a nightly retroactive
+  data loss. Disabled again 2026-11-26.
+
+Conclusion: the Pi 5 corrupts data in memory across at least four
+independent processes (thanos compact, thanos sidecar, Prometheus WAL,
+a Python CronJob) on current firmware. The host is not fit to write
+long-term metrics until the cause is found. Next: move R2 writes
+(sidecar upload, compactor) to the OCI replica; run the zram / long
+memory test on the Pi separately.
 
 ## Lessons
 
